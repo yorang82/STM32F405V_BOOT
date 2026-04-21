@@ -25,8 +25,8 @@ HAL_StatusTypeDef Erase_App_Sectors(void)
 
     EraseInitStruct.TypeErase     = FLASH_TYPEERASE_SECTORS;
     EraseInitStruct.VoltageRange  = FLASH_VOLTAGE_RANGE_3;
-    EraseInitStruct.Sector        = FLASH_SECTOR_5; // 시작 섹터
-    EraseInitStruct.NbSectors     = 2;              // Sector 5, 6 총 2개
+    EraseInitStruct.Sector        = APP_SECTOR_START; // 시작 섹터
+    EraseInitStruct.NbSectors     = APP_SECTOR_COUNT;              // Sector 5, 6 총 2개
 
     return HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
 }
@@ -62,26 +62,33 @@ HAL_StatusTypeDef Write_Flash(uint32_t DestAddr, uint8_t *pData, uint32_t DataLe
 
 
 /* -------------------------------------------------------------------------- */
-/*                        Sector 7 플래그 기록 함수                            */
+/*                        Sector 플래그 기록 함수                               */
 /* -------------------------------------------------------------------------- */
 /**
- * @brief  플래그 값(FLAG_PASS/ING 등) 기록 (Sector 7)
+ * @brief  플래그 값(FLAG_PASS/ING 등) 기록
  * @param  flag  기록할 플래그 값
  */
 void Update_Flag(uint32_t flag)
 {
     HAL_FLASH_Unlock();
-    // Sector 7 전체를 지우고 새로 써야 합니다 (128KB)
+    
+    // 기록 전 부저 짧게 ON
+    LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
     FLASH_EraseInitTypeDef EraseInitStruct;
     uint32_t SectorError;
     EraseInitStruct.TypeErase = FLASH_TYPEERASE_SECTORS;
-    EraseInitStruct.Sector = FLASH_SECTOR_7;
+    EraseInitStruct.Sector    = FLAG_SECTOR; // FLASH_SECTOR_4
     EraseInitStruct.NbSectors = 1;
     EraseInitStruct.VoltageRange = FLASH_VOLTAGE_RANGE_3;
 
     if (HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError) == HAL_OK) {
         HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, FLAG_ADDR, flag);
     }
+
+    // 기록 후 부저 OFF
+    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+    
     HAL_FLASH_Lock();
 }
 

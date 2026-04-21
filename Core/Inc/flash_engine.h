@@ -19,16 +19,21 @@
 // ==================================================
 //                  매크로 정의
 // ==================================================
-
 #define UPDATE_FILENAME   "update.bin" // 예: 12345678.bin
-#define APP_START_ADDR    0x08020000   // Sector 5 시작 주소
-#define FLASH_CHUNK_SIZE  2048         // Flash 1회 읽기/쓰기 크기 (2KB 권장)
 
-// ------------------- 플래그 관련 (Sector 7) -------------------
-#define FLAG_ADDR         0x08060000   // 플래그 저장 주소
+
+// ------------------- 플래그 관련 -------------------
+#define FLAG_ADDR         0x08010000   // 플래그 저장 주소
+#define FLAG_SECTOR       FLASH_SECTOR_4 // 플래그 저장 섹터 (64KB, Sector 4)
 #define FLAG_PASS         0x50415353   // 'PASS'
 #define FLAG_NEW          0x4E455720   // 'NEW '
 #define FLAG_ING          0x494E4720   // 'ING '
+#define FLASH_CHUNK_SIZE  2048         // Flash 1회 읽기/쓰기 크기 (2KB 권장)
+
+// ------------------- 앱 영역 (Sector 5~6) -------------------
+#define APP_START_ADDR    0x08020000   // Sector 5 시작 주소
+#define APP_SECTOR_START  FLASH_SECTOR_5 // 앱 영역 시작 섹터
+#define APP_SECTOR_COUNT  2            // [변경] Sector 5, 6만 사용 (256KB)
 
 
 // ==================================================
@@ -51,7 +56,7 @@ HAL_StatusTypeDef Erase_App_Sectors(void);
 HAL_StatusTypeDef Write_Flash(uint32_t DestAddr, uint8_t *pData, uint32_t DataLen);
 
 /**
- * @brief  플래그 값 업데이트 (Sector 7)
+ * @brief  플래그 값 업데이트 (Sector 4)
  * @param  flag  기록할 플래그 값 (FLAG_PASS, FLAG_ING 등)
  */
 void Update_Flag(uint32_t flag);

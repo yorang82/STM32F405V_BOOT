@@ -118,7 +118,7 @@ int main(void)
   // 만약 플래시가 깨끗(0xFF)하거나 쓰레기 값이 들어있다면?
   if (current_f != FLAG_PASS && current_f != FLAG_ING) 
   {
-    printf("Flash Sanity Check: FLAG is 0x%08X (not PASS/ING). Initializing to NEW.\r\n", current_f);
+    printf("Flash Sanity Check: FLAG is 0x%08lX (not PASS/ING). Initializing to NEW.\r\n", current_f);
     // 1. 디버그 메시지나 부저로 알림 (선택)
     LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
     HAL_Delay(50);
