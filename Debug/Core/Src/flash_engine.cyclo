@@ -1,5 +1,6 @@
-../Core/Src/flash_engine.c:11:19:Erase_App_Sectors	1
-../Core/Src/flash_engine.c:24:19:Write_Flash	3
-../Core/Src/flash_engine.c:34:6:Update_Flag	2
-../Core/Src/flash_engine.c:51:6:Is_App_Valid	3
-../Core/Src/flash_engine.c:58:6:Jump_To_Application	1
+../Core/Src/flash_engine.c:21:19:Erase_App_Sectors	1
+../Core/Src/flash_engine.c:45:19:Write_Flash	3
+../Core/Src/flash_engine.c:63:6:Update_Flag	2
+../Core/Src/flash_engine.c:88:6:Is_App_Valid	3
+../Core/Src/flash_engine.c:103:6:Jump_To_Application	1
+../Core/Src/flash_engine.c:132:10:Get_Flag	1

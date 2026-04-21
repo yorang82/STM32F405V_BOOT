@@ -1,2 +1,2 @@
-../Core/Src/crc.c:29:13:crcInitTables	24	static
-../Core/Src/crc.c:57:10:crcCalculate	56	static
+../Core/Src/crc.c:34:13:crcInitTables	24	static
+../Core/Src/crc.c:68:10:crcCalculate	56	static

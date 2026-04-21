@@ -1,37 +1,40 @@
 /*
- * Project: Common Layer
+ * Project: STM32F405V 펌웨어 업데이트 예제
  *
  * File: crc.c
  * Author: Young Kwan CHO, Lucy
- * Last Modified: 2026-04-05
- * Description: CRC calculation implementation
+ * Last Modified: 2026-04-21
+ * Description: CRC 계산 함수 구현 (8/16/32비트)
  */
+
 
 #include "crc.h"
 #include <stdbool.h>
 
 /* -------------------------------------------------------------------------- */
-/*                         GENERIC LOOKUP TABLE STORAGE                       */
+/*                         CRC 테이블 저장소 및 초기화                         */
 /* -------------------------------------------------------------------------- */
 /*
  * CRC-8   : poly 0x07
  * CRC-16  : CCITT poly 0x1021
  * CRC-32  : poly 0xEDB88320 (reflected)
  *
- * The tables below are generic standard lookup tables generated once at init
- * and reused by all channels through crcCalculate().
+ * 아래 테이블은 최초 1회만 생성되며, crcCalculate()에서 재사용됩니다.
  */
-static bool     crc_table_is_init = false;
-static uint8_t  crc8_table[256];
-static uint16_t crc16_table[256];
-static uint32_t crc32_table[256];
 
+static bool     crc_table_is_init = false;      // 테이블 초기화 여부
+static uint8_t  crc8_table[256];                // CRC-8 테이블
+static uint16_t crc16_table[256];               // CRC-16 테이블
+static uint32_t crc32_table[256];               // CRC-32 테이블
+
+
+/**
+ * @brief  CRC 테이블(8/16/32) 1회 초기화
+ */
 static void crcInitTables(void)
 {
   if (crc_table_is_init == true)
-  {
     return;
-  }
 
   for (uint32_t i = 0U; i < 256U; i++)
   {
@@ -54,12 +57,18 @@ static void crcInitTables(void)
   crc_table_is_init = true;
 }
 
+
+/**
+ * @brief  지정 타입의 CRC 계산 (8/16/32)
+ * @param  type    CRC 종류 (CRC_8, CRC_16, CRC_32)
+ * @param  p_data  데이터 포인터
+ * @param  length  데이터 길이 (byte)
+ * @retval 계산된 CRC 값
+ */
 uint32_t crcCalculate(crc_type_t type, uint8_t *p_data, uint32_t length)
 {
   if ((type != CRC_NONE) && ((p_data == NULL) || (length == 0U)))
-  {
     return 0U;
-  }
 
   crcInitTables();
 
@@ -68,7 +77,6 @@ uint32_t crcCalculate(crc_type_t type, uint8_t *p_data, uint32_t length)
     case CRC_8:
     {
       uint8_t crc = 0x00U;
-
       for (uint32_t i = 0U; i < length; i++)
       {
         crc = crc8_table[crc ^ p_data[i]];
@@ -79,7 +87,6 @@ uint32_t crcCalculate(crc_type_t type, uint8_t *p_data, uint32_t length)
     case CRC_16:
     {
       uint16_t crc = 0xFFFFU;
-
       for (uint32_t i = 0U; i < length; i++)
       {
         uint8_t index = (uint8_t)((crc >> 8) ^ p_data[i]);
@@ -91,7 +98,6 @@ uint32_t crcCalculate(crc_type_t type, uint8_t *p_data, uint32_t length)
     case CRC_32:
     {
       uint32_t crc = 0xFFFFFFFFU;
-
       for (uint32_t i = 0U; i < length; i++)
       {
         uint8_t index = (uint8_t)(crc ^ p_data[i]);
