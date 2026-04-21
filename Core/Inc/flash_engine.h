@@ -9,6 +9,7 @@
 #define INC_FLASH_ENGINE_H_
 
 #include "main.h"
+#include <stdbool.h>
 
 #define UPDATE_FILENAME "update.bin" //예: 12345678.bin
 #define APP_START_ADDR  0x08020000  // Sector 5

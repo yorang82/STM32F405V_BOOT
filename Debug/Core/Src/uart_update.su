@@ -1,0 +1,5 @@
+../Core/Src/uart_update.c:23:6:uartUpdateInit	8	static
+../Core/Src/uart_update.c:41:6:uartUpdateProcess	16	static
+../Core/Src/uart_update.c:85:15:uartGetState	4	static
+../Core/Src/uart_update.c:90:6:sendAckToAda	16	static
+../Core/Src/uart_update.c:97:6:sendNackToAda	16	static

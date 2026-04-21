@@ -6,7 +6,6 @@
  */
 
 #include "flash_engine.h"
-#include <stdbool.h>
 
 // 섹터 5, 6 (App 영역) 지우기
 HAL_StatusTypeDef Erase_App_Sectors(void) {

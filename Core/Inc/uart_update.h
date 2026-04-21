@@ -9,6 +9,7 @@
 #define INC_UART_UPDATE_H_
 
 #include "main.h"
+#include <stdbool.h>
 
 // 업데이트 상태 정의
 typedef enum {

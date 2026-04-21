@@ -1,0 +1,5 @@
+../Core/Src/uart_update.c:23:6:uartUpdateInit	2
+../Core/Src/uart_update.c:41:6:uartUpdateProcess	11
+../Core/Src/uart_update.c:85:15:uartGetState	1
+../Core/Src/uart_update.c:90:6:sendAckToAda	1
+../Core/Src/uart_update.c:97:6:sendNackToAda	1

@@ -1,0 +1,2 @@
+../Core/Src/crc.c:29:13:crcInitTables	6
+../Core/Src/crc.c:57:10:crcCalculate	11
