@@ -110,6 +110,25 @@ int main(void)
 
   LL_GPIO_SetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
 
+  printf("Bootloader Started. Checking for updates...\r\n");
+
+  // [추가] 플래시 상태 정밀 점검 (Sanity Check)
+  uint32_t current_f = Get_Flag();
+
+  // 만약 플래시가 깨끗(0xFF)하거나 쓰레기 값이 들어있다면?
+  if (current_f != FLAG_PASS && current_f != FLAG_ING) 
+  {
+    printf("Flash Sanity Check: FLAG is 0x%08X (not PASS/ING). Initializing to NEW.\r\n", current_f);
+    // 1. 디버그 메시지나 부저로 알림 (선택)
+    LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+    HAL_Delay(50);
+    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
+    // 2. 상태를 'ING'로 강제 초기화하여 업데이트를 유도합니다.
+    // 이렇게 하면 칩이 신규일 때 무조건 업데이트 모드에 머물게 됩니다.
+    Update_Flag(FLAG_NEW);
+  }
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -124,29 +143,29 @@ int main(void)
     /* ------------------------------------------------------------------ */
     /*                1. USB 업데이트 프로세스 실행 (update.bin 체크)        */
     /* ------------------------------------------------------------------ */
+    printf("Checking for USB update...\r\n");
     Process_USB_Update();
+    // USB에서 이미 성공했다면 바로 루프 탈출!
+    if (Get_Flag() == FLAG_PASS) break;
 
+    printf("No updates found. Checking UART...\r\n");
     /* ------------------------------------------------------------------ */
     /*                2. UART 업데이트 프로세스 실행 (Ada 패킷 수신)         */
     /* ------------------------------------------------------------------ */
+    printf("Checking for UART update...\r\n");
     uartUpdateProcess();
+    // UART에서 이미 성공했다면 바로 루프 탈출!
+    if (Get_Flag() == FLAG_PASS) break;
 
     /* ------------------------------------------------------------------ */
-    /*                3. 업데이트 성공 시 루프 탈출                         */
-    /* ------------------------------------------------------------------ */
-    // Get_Flag()는 flash_engine.c에 구현되어야 합니다.
-    if (Get_Flag() == FLAG_PASS)
-    {
-        break;
-    }
-
-    /* ------------------------------------------------------------------ */
-    /*                4. 이미 PASS 상태이고 업데이트 시도가 없다면           */
-    /*                   일정 시간 후 탈출 (선택 사항)                      */
+    /*                3. 이미 PASS 상태이고 업데이트 시도가 없다면             */
+    /*                   일정 시간 후 탈출 (선택 사항)                        */
     /* ------------------------------------------------------------------ */
     // (선택 구현: 필요 시 타이머/상태 변수 활용)
   }
 
+  printf("Update successful. Jumping to application...\r\n");
+  
   /* -------------------------------------------------------------------- */
   /*                앱으로 점프하기 전 주변장치 정리                       */
   /* -------------------------------------------------------------------- */

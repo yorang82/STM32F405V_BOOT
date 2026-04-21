@@ -3,4 +3,25 @@ STM32F405V_Boot 파일설명
 1. XXXXXXXX_boot.hex : 부트로더 ( ST-LINK 장비로 STM32F405 칩 플래쉬메모리에 적용)
 ================================================================================
 
+----------------------
+[2026-04-21] 펌웨어 업데이트 파일/주소/플래그 설정 안내
+----------------------
+1. 업데이트 파일명
+	 - 기본 파일명: update.bin
+	 - 변경하려면 Core/Inc/flash_engine.h에서
+		 #define UPDATE_FILENAME   "update.bin"
+		 부분을 원하는 파일명으로 수정
+
+2. Application 시작 주소
+	 - 기본 주소: 0x08020000 (Sector 5)
+	 - 변경하려면 Core/Inc/flash_engine.h에서
+		 #define APP_START_ADDR    0x08020000
+		 부분을 원하는 주소로 수정
+
+3. 플래그 저장 주소
+	 - 기본 주소: 0x08060000 (Sector 7)
+	 - 변경하려면 Core/Inc/flash_engine.h에서
+		 #define FLAG_ADDR         0x08060000
+		 부분을 원하는 주소로 수정
+
 
