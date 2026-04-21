@@ -130,49 +130,50 @@ int main(void)
 
   while (1)
   {
-    /* USER CODE END WHILE */
-    MX_USB_HOST_Process();
+    uint32_t start_tick = HAL_GetTick();
+    uint8_t usb_update_success = 0;
+    uint8_t uart_update_success = 0;
 
-    /* USER CODE BEGIN 3 */
     /* ------------------------------------------------------------------ */
-    /* 1. USB 이벤트 기반 업데이트 프로세스                                 */
+    /* 1. USB 인식 대기 (최대 3초)                                         */
     /* ------------------------------------------------------------------ */
-    switch (Appli_state)
+    printf("[BOOT] USB MSC WAITING... (MAX 3 SEC)\r\n");
+    while ((HAL_GetTick() - start_tick) < 3000)
     {
-      case APPLICATION_READY:
-        // USB MSC가 완전히 준비된 후에만 업데이트 시도
+      MX_USB_HOST_Process();
+      if (Appli_state == APPLICATION_READY)
+      {
         printf("[USB] MSC Ready. Start update!\r\n");
         Process_USB_Update();
-        Appli_state = APPLICATION_IDLE; // 중복 실행 방지
-        break;
-
-      case APPLICATION_DISCONNECT:
-        printf("[USB] MSC Unplugged.\r\n");
-        // 필요시 f_mount(NULL, ...) 등 정리
+        if (Get_Flag() == FLAG_PASS) {
+          usb_update_success = 1;
+          break;
+        }
         Appli_state = APPLICATION_IDLE;
-        break;
-
-      default:
-        // MSC 준비 전 또는 IDLE 상태
-        break;
+      }
+      if (Appli_state == APPLICATION_DISCONNECT)
+      {
+        printf("[USB] MSC Unplugged.\r\n");
+        Appli_state = APPLICATION_IDLE;
+      }
     }
-    // USB 업데이트 성공 시 루프 탈출
-    if (Get_Flag() == FLAG_PASS) break;
-
-    printf("No updates found. Checking UART...\r\n");
-    /* ------------------------------------------------------------------ */
-    /*                2. UART 업데이트 프로세스 실행 (Ada 패킷 수신)         */
-    /* ------------------------------------------------------------------ */
-    printf("Checking for UART update...\r\n");
-    uartUpdateProcess();
-    // UART에서 이미 성공했다면 바로 루프 탈출!
-    if (Get_Flag() == FLAG_PASS) break;
+    if (usb_update_success) break;
 
     /* ------------------------------------------------------------------ */
-    /*                3. 이미 PASS 상태이고 업데이트 시도가 없다면             */
-    /*                   일정 시간 후 탈출 (선택 사항)                        */
+    /* 2. UART 업데이트 대기 (최대 3초)                                     */
     /* ------------------------------------------------------------------ */
-    // (선택 구현: 필요 시 타이머/상태 변수 활용)
+    printf("[BOOT] UART UPDATE WAITING... (MAX 3 SEC)\r\n");
+    start_tick = HAL_GetTick();
+    while ((HAL_GetTick() - start_tick) < 3000)
+    {
+      uartUpdateProcess();
+      if (Get_Flag() == FLAG_PASS) {
+        uart_update_success = 1;
+        break;
+      }
+    }
+    if (uart_update_success) break;
+    // 이후 다시 USB로 루프 반복
   }
 
   printf("Update successful. Jumping to application...\r\n");
