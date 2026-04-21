@@ -119,13 +119,11 @@ int main(void)
   if (current_f != FLAG_PASS && current_f != FLAG_ING) 
   {
     printf("Flash Sanity Check: FLAG is 0x%08lX (not PASS/ING). Initializing to NEW.\r\n", current_f);
-    // 1. 디버그 메시지나 부저로 알림 (선택)
-    LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
-    HAL_Delay(50);
-    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+      // 1. 플래시가 깨끗하거나 쓰레기 값이 들어있다면, 'NEW'로 초기화하여 업데이트를 유도합니다.
+      // 이렇게 하면 칩이 신규일 때 무조건 업데이트 모드에 머물게 됩니다.
+      // (선택 구현: 필요 시 'NEW' 대신 'ING'로 초기화하여 바로 업데이트 모드로 진입하게 할 수도 있습니다.)
+      // Update_Flag(FLAG_ING); // 바로 'ING'로 초기화하여 업데이트 모드로 진입 유도
 
-    // 2. 상태를 'ING'로 강제 초기화하여 업데이트를 유도합니다.
-    // 이렇게 하면 칩이 신규일 때 무조건 업데이트 모드에 머물게 됩니다.
     Update_Flag(FLAG_NEW);
   }
 
