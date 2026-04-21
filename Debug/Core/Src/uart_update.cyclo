@@ -1,8 +1,0 @@
-../Core/Src/uart_update.c:42:6:uartUpdateInit	2
-../Core/Src/uart_update.c:66:6:uartUpdateProcess	11
-../Core/Src/uart_update.c:119:15:uartGetState	1
-../Core/Src/uart_update.c:131:6:sendAckToAda	1
-../Core/Src/uart_update.c:140:6:sendNackToAda	1
-../Core/Src/uart_update.c:154:10:uartAvailable	1
-../Core/Src/uart_update.c:164:6:parsePacket	4
-../Core/Src/uart_update.c:182:5:__io_putchar	1

@@ -1,6 +1,0 @@
-../Core/Src/flash_engine.c:21:19:Erase_App_Sectors	32	static
-../Core/Src/flash_engine.c:45:19:Write_Flash	40	static
-../Core/Src/flash_engine.c:63:6:Update_Flag	48	static
-../Core/Src/flash_engine.c:88:6:Is_App_Valid	16	static
-../Core/Src/flash_engine.c:103:6:Jump_To_Application	32	static,ignoring_inline_asm
-../Core/Src/flash_engine.c:132:10:Get_Flag	4	static
