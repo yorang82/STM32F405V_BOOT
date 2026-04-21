@@ -9,6 +9,9 @@
 #include "usb_host.h"     // [추가] USBH_MSC_IsReady 사용을 위해
 #include "usbh_msc.h"     // MSC 클래스 함수 사용을 위해
 
+#include <stdbool.h>
+
+
 extern USBH_HandleTypeDef hUsbHostFS;
 
 void Process_USB_Update(void) {

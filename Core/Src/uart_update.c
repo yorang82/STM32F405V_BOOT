@@ -10,6 +10,8 @@
 #include "flash_engine.h" // 이전에 만든 공용 플래시 엔진
 #include "crc.h"          // App에서 가져온 CRC 소스
 
+#include <stdbool.h>
+
 /* main.c의 핸들러 참조 (태블릿 연결 포트 확인 필요) */
 extern UART_HandleTypeDef huart2;
 

@@ -8,6 +8,7 @@
  */
 
 #include "crc.h"
+#include <stdbool.h>
 
 /* -------------------------------------------------------------------------- */
 /*                         GENERIC LOOKUP TABLE STORAGE                       */
