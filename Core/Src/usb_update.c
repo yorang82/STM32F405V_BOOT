@@ -50,10 +50,18 @@ void Process_USB_Update(void)
             HAL_FLASH_Unlock();
             if (Erase_App_Sectors() == HAL_OK) {
                 Update_Flag(FLAG_ING);
+
+                // [추가] 전체 쓰기 시작 시 부저 ON
+                LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
                 while (f_read(&updateFile, writeBuffer, FLASH_CHUNK_SIZE, &bytesRead) == FR_OK && bytesRead > 0) {
                     if (Write_Flash(currentAddr, writeBuffer, bytesRead) != HAL_OK) break;
                     currentAddr += bytesRead;
                 }
+
+                // [추가] 전체 쓰기 완료 시 부저 OFF
+                LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
                 if (f_eof(&updateFile)) {
                     Update_Flag(FLAG_PASS);
                 }

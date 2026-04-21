@@ -27,6 +27,7 @@
 // ------------------- 플래그 관련 (Sector 7) -------------------
 #define FLAG_ADDR         0x08060000   // 플래그 저장 주소
 #define FLAG_PASS         0x50415353   // 'PASS'
+#define FLAG_NEW          0x4E455720   // 'NEW '
 #define FLAG_ING          0x494E4720   // 'ING '
 
 

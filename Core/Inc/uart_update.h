@@ -14,6 +14,7 @@
 
 #include "main.h"
 #include <stdbool.h>
+#include <stdio.h>
 
 
 // ==================================================
@@ -55,12 +56,6 @@ bool uartUpdateInit(void);
 void uartUpdateProcess(void);
 
 /**
- * @brief  현재 업데이트 상태 반환
- * @retval UpdateState_t (READY/ING/PASS/FAIL)
- */
-UpdateState_t uartGetState(void);
-
-/**
  * @brief  수신 버퍼에 남아있는 데이터 개수 반환
  * @retval 남은 바이트 수
  */
@@ -72,6 +67,17 @@ uint32_t uartAvailable(void);
  * @retval true: 정상 패킷, false: 오류
  */
 bool parsePacket(uint8_t *p_buffer);
+
+/**
+ * @brief  현재 업데이트 상태 반환
+ * @retval UpdateState_t (READY/ING/PASS/FAIL)
+ */
+UpdateState_t uartGetState(void);
+
+/**
+ * @brief  안드로이드(Ada)에게 펌웨어 전송을 요청하는 패킷 송신
+ */
+void sendFwRequestToAda(void);
 
 /**
  * @brief  ADA(상위)로 ACK 전송

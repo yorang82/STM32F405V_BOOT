@@ -30,7 +30,7 @@ static uint8_t rx_buffer[1024 + 64];
 static UpdateState_t current_state = UPDATE_READY;
 static uint32_t write_addr = APP_START_ADDR;
 static bool is_uart_init = false;
-
+static uint32_t last_request_tick = 0; // 마지막 요청 시간 저장
 
 /* -------------------------------------------------------------------------- */
 /*                  UART 업데이트 모듈 초기화 함수                             */
@@ -65,29 +65,67 @@ bool uartUpdateInit(void)
  */
 void uartUpdateProcess(void)
 {
+    uint32_t current_tick = HAL_GetTick();
+
+    // 1. FLAG_NEW 상태일 때 1초마다 Ada에게 요청 메시지 전송
+    if (Get_Flag() == FLAG_NEW)
+    {
+        if (current_tick - last_request_tick > 1000) // 1000ms 주기
+        {
+            sendFwRequestToAda();
+            last_request_tick = current_tick;
+            
+            // 디버그용 LED 반전 (동작 확인용)
+            LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin); 
+            // 아주 짧은 부저음 (10ms)
+            LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+            HAL_Delay(10); // 10ms 정도는 시스템에 큰 지장 없음
+            LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+        }
+    }
+
+    // 2. 패킷 수신 처리
     if (uartAvailable() > 0) {
         if (parsePacket(rx_buffer)) {
             uint8_t cmd = rx_buffer[1];
             uint16_t data_len = (rx_buffer[2] << 8) | rx_buffer[3];
 
+            // Ada가 0x01(START) 패킷을 보내면, 그때부터 FLAG_ING로 바뀌며 
+            // 위의 'NEW' 요청 로직은 자동으로 멈춥니다.
             switch(cmd) {
-                case 0x01: // START
+                case 0x01: // START: 업데이트 시작 알림
                     HAL_FLASH_Unlock();
                     if (Erase_App_Sectors() == HAL_OK) {
-                        Update_Flag(FLAG_ING);
+                        Update_Flag(FLAG_ING);  // 여기서 상태가 바뀌므로 Poll 중단됨
                         write_addr = APP_START_ADDR;
                         sendAckToAda();
                         current_state = UPDATE_ING;
+
+                        // 시작 알림: 짧게 한 번 "삑!"
+                        LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+                        HAL_Delay(100);
+                        LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                     }
                     break;
 
-                case 0x02: // DATA
+                case 0x02: // DATA: 실제 데이터 기록 구간
                 {
                     uint32_t received_crc = *(uint32_t*)&rx_buffer[4 + data_len];
                     if (crcCalculate(CRC_32, &rx_buffer[4], data_len) == received_crc) {
+
+                        // [추가] Flash 기록 시작 전 부저 ON
+                        LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
                         if (Write_Flash(write_addr, &rx_buffer[4], data_len) == HAL_OK) {
                             write_addr += data_len;
+
+                            // [추가] 기록 완료 후 부저 OFF
+                            LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
                             sendAckToAda();
+                        } else {
+                            // 에러 시 부저 끄기
+                            LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                         }
                     } else {
                         sendNackToAda();
@@ -95,52 +133,22 @@ void uartUpdateProcess(void)
                     break;
                 }
 
-                case 0x03: // END
+                case 0x03: // END: 모든 전송 완료
                     if (Is_App_Valid()) {
                         Update_Flag(FLAG_PASS);
                         current_state = UPDATE_PASS;
                         sendAckToAda();
+
+                        // 성공 알림: 길게 "삐이이-"
+                        LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+                        HAL_Delay(500);
+                        LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                     }
                     HAL_FLASH_Lock();
                     break;
             }
         }
     }
-}
-
-
-/* -------------------------------------------------------------------------- */
-/*                  현재 업데이트 상태 반환 함수                              */
-/* -------------------------------------------------------------------------- */
-/**
- * @brief  현재 업데이트 상태 반환
- * @retval UpdateState_t (READY/ING/PASS/FAIL)
- */
-UpdateState_t uartGetState(void)
-{
-    return current_state;
-}
-
-
-/* -------------------------------------------------------------------------- */
-/*                  성공/실패 응답 전송 함수                                  */
-/* -------------------------------------------------------------------------- */
-/**
- * @brief  ADA(상위)로 ACK 전송
- */
-void sendAckToAda(void)
-{
-    uint8_t ack_pkt[] = {0x02, 0x06, 0x00, 0x03};
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, ack_pkt, sizeof(ack_pkt), 100);
-}
-
-/**
- * @brief  ADA(상위)로 NACK 전송
- */
-void sendNackToAda(void)
-{
-    uint8_t nack_pkt[] = {0x02, 0x15, 0x00, 0x03};
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, nack_pkt, sizeof(nack_pkt), 100);
 }
 
 
@@ -168,6 +176,51 @@ bool parsePacket(uint8_t *p_buffer)
         return true;
     }
     return false;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*                  현재 업데이트 상태 반환 함수                              */
+/* -------------------------------------------------------------------------- */
+/**
+ * @brief  현재 업데이트 상태 반환
+ * @retval UpdateState_t (READY/ING/PASS/FAIL)
+ */
+UpdateState_t uartGetState(void)
+{
+    return current_state;
+}
+
+
+/* -------------------------------------------------------------------------- */
+/*                  요청/성공/실패 응답 전송 함수                                 */
+/* -------------------------------------------------------------------------- */
+/**
+ * @brief  안드로이드(Ada)에게 펌웨어 전송을 요청하는 패킷 송신
+ */
+void sendFwRequestToAda(void)
+{
+    // [STX(0x02)] [CMD_REQ(0x05)] [LEN(0x00)] [ETX(0x03)] 형태로 정의
+    uint8_t req_pkt[] = {0x02, 0x05, 0x00, 0x03}; 
+    HAL_UART_Transmit(&ANDROID_UART_HANDLE, req_pkt, sizeof(req_pkt), 100);
+}
+
+/**
+ * @brief  ADA(상위)로 ACK 전송
+ */
+void sendAckToAda(void)
+{
+    uint8_t ack_pkt[] = {0x02, 0x06, 0x00, 0x03};
+    HAL_UART_Transmit(&ANDROID_UART_HANDLE, ack_pkt, sizeof(ack_pkt), 100);
+}
+
+/**
+ * @brief  ADA(상위)로 NACK 전송
+ */
+void sendNackToAda(void)
+{
+    uint8_t nack_pkt[] = {0x02, 0x15, 0x00, 0x03};
+    HAL_UART_Transmit(&ANDROID_UART_HANDLE, nack_pkt, sizeof(nack_pkt), 100);
 }
 
 

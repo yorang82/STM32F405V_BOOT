@@ -44,11 +44,19 @@ HAL_StatusTypeDef Erase_App_Sectors(void)
  */
 HAL_StatusTypeDef Write_Flash(uint32_t DestAddr, uint8_t *pData, uint32_t DataLen)
 {
+	// [추가] 데이터 기록 시작 전 부저 ON
+	LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
     for (uint32_t i = 0; i < DataLen; i += 4) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, DestAddr + i, *(uint32_t*)(pData + i)) != HAL_OK) {
+        	// [추가] 쓰기 실패 시 부저를 끄고 에러 반환
+        	LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
             return HAL_ERROR;
         }
     }
+    // [추가] 해당 블록(2KB) 기록 완료 후 부저 OFF
+    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+
     return HAL_OK;
 }
 
