@@ -1,0 +1,6 @@
+{
+    "C_Cpp.intelliSenseEngine": "default",
+    "C_Cpp.errorSquiggles": "enabled",
+    "scm.diffDecorationsGutterVisibility": "hover",
+    "cmake.configureOnOpen": false
+}

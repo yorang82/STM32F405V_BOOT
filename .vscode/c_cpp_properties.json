@@ -1,0 +1,51 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/Core/Inc",
+                "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc",
+                "${workspaceFolder}/Drivers/STM32F4xx_HAL_Driver/Inc/Legacy",
+                "${workspaceFolder}/Drivers/CMSIS/Device/ST/STM32F4xx/Include",
+                "${workspaceFolder}/Drivers/CMSIS/Include",
+                "${workspaceFolder}/App",
+                "${workspaceFolder}/App/Include",
+                "${workspaceFolder}/App/Src",
+                "${workspaceFolder}/App/Usb",
+                "${workspaceFolder}/App/Usb/core",
+                "${workspaceFolder}/App/Usb/usb_cdc",
+                "${workspaceFolder}/App/Usb/usb_msc",
+                "${workspaceFolder}/App/Include/Common",
+                "${workspaceFolder}/App/Include/Driver",
+                "${workspaceFolder}/App/Include/Driver/Device",
+                "${workspaceFolder}/App/Include/Driver/Internal",
+                "${workspaceFolder}/App/Src/Common",
+                "${workspaceFolder}/App/Src/Driver",
+                "${workspaceFolder}/App/Src/Driver/Device",
+                "${workspaceFolder}/App/Src/Driver/Internal",
+                "${workspaceFolder}/App/Include/Module",
+                "${workspaceFolder}/App/Src/Module",
+                "${workspaceFolder}/App/Include/GUI",
+                "${workspaceFolder}/App/Src/GUI"
+            ],
+            "defines": [
+                "DEBUG",
+                "USE_HAL_DRIVER",
+                "STM32F405xx",
+                "USE_FULL_LL_DRIVER"
+            ],
+            "compilerPath": "C:/ST/STM32CubeIDE_2.0.0/STM32CubeIDE/plugins/com.st.stm32cube.ide.mcu.externaltools.gnu-tools-for-stm32.13.3.rel1.win32_1.0.100.202509120712/tools/bin/arm-none-eabi-gcc.exe",
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++14",
+            "intelliSenseMode": "gcc-arm",
+            "compilerArgs": [
+                "-mcpu=cortex-m4",
+                "-mthumb",
+                "-mfpu=fpv4-sp-d16",
+                "-mfloat-abi=hard"
+            ]
+        }
+    ],
+    "version": 4
+}
