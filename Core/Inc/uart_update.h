@@ -77,17 +77,17 @@ UpdateState_t uartGetState(void);
 /**
  * @brief  안드로이드(Ada)에게 펌웨어 전송을 요청하는 패킷 송신
  */
-void sendFwRequestToAda(void);
+void sendFwRequestToAda(uint16_t val);
 
 /**
  * @brief  ADA(상위)로 ACK 전송
  */
-void sendAckToAda(void);
+void sendUpdateAckToAda(void);
 
 /**
  * @brief  ADA(상위)로 NACK 전송
  */
-void sendNackToAda(void);
+void sendUpdateNackToAda(void);
 
 
 #endif /* INC_UART_UPDATE_H_ */

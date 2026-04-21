@@ -27,7 +27,9 @@
 #define FLAG_SECTOR       FLASH_SECTOR_4 // 플래그 저장 섹터 (64KB, Sector 4)
 #define FLAG_PASS         0x50415353   // 'PASS'
 #define FLAG_NEW          0x4E455720   // 'NEW '
+#define FLAG_READY        0x52454144   // 'READY'
 #define FLAG_ING          0x494E4720   // 'ING '
+
 #define FLASH_CHUNK_SIZE  128         // Flash 1회 읽기/쓰기 크기 (128B 권장)
 
 // ------------------- 앱 영역 (Sector 5~6) -------------------

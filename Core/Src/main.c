@@ -161,9 +161,13 @@ int main(void)
 
     /* ------------------------------------------------------------------ */
     /* 2. UART 업데이트 대기 (최대 3초)                                     */
-    /* ------------------------------------------------------------------ */
-    printf("[BOOT] UART UPDATE WAITING... (MAX 3 SEC)\r\n");
+    /* ------------------------------------------------------------------ */  
+    if (Get_Flag() == FLAG_PASS) {
+      uart_update_success = 1;
+      break;
+    }
     start_tick = HAL_GetTick();
+    printf("[BOOT] UART UPDATE WAITING... (MAX 3 SEC)\r\n");
     while ((HAL_GetTick() - start_tick) < 3000)
     {
       uartUpdateProcess();

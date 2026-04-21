@@ -1,4 +1,3 @@
-
 /*
  * Project: STM32F405V 펌웨어 업데이트 예제
  *
@@ -14,6 +13,7 @@
 #include "flash_engine.h" // 공용 플래시 엔진
 #include "crc.h"          // CRC 계산
 #include <stdbool.h>
+#include <string.h>      // memcpy
 
 
 // ==================================================
@@ -67,19 +67,26 @@ void uartUpdateProcess(void)
 {
     uint32_t current_tick = HAL_GetTick();
 
-    // 1. FLAG_NEW 상태일 때 1초마다 Ada에게 요청 메시지 전송
-    if (Get_Flag() == FLAG_NEW)
+    // 1. FLAG_NEW 또는 FLAG_READY 상태일 때 1초마다 Ada에게 요청 메시지 전송
+    // NEW: 빌트인 펌웨어 요청, READY: 최신 펌웨어 요청
+    if (Get_Flag() == FLAG_NEW || Get_Flag() == FLAG_READY)
     {
         if (current_tick - last_request_tick > 1000) // 1000ms 주기
         {
-            sendFwRequestToAda();
+            if (Get_Flag() == FLAG_NEW) {
+            // NEW: 빌트인 펌웨어 요청 (VAL=20)
+                 sendFwRequestToAda(20);
+            } else if (Get_Flag() == FLAG_READY) {
+            // READY: 최신 펌웨어 요청 (VAL=44)
+                sendFwRequestToAda(44);
+            }
             last_request_tick = current_tick;
-            
+
             // 디버그용 LED 반전 (동작 확인용)
-            LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin); 
+            LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin);
             // 아주 짧은 부저음 (10ms)
             LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
-            HAL_Delay(10); // 10ms 정도는 시스템에 큰 지장 없음
+            HAL_Delay(10);
             LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
         }
     }
@@ -98,7 +105,7 @@ void uartUpdateProcess(void)
                     if (Erase_App_Sectors() == HAL_OK) {
                         Update_Flag(FLAG_ING);  // 여기서 상태가 바뀌므로 Poll 중단됨
                         write_addr = APP_START_ADDR;
-                        sendAckToAda();
+                        sendUpdateAckToAda();
                         current_state = UPDATE_ING;
 
                         // 시작 알림: 짧게 한 번 "삑!"
@@ -122,13 +129,13 @@ void uartUpdateProcess(void)
                             // [추가] 기록 완료 후 부저 OFF
                             LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
 
-                            sendAckToAda();
+                            sendUpdateAckToAda();
                         } else {
                             // 에러 시 부저 끄기
                             LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                         }
                     } else {
-                        sendNackToAda();
+                        sendUpdateNackToAda();
                     }
                     break;
                 }
@@ -137,7 +144,7 @@ void uartUpdateProcess(void)
                     if (Is_App_Valid()) {
                         Update_Flag(FLAG_PASS);
                         current_state = UPDATE_PASS;
-                        sendAckToAda();
+                        sendUpdateAckToAda();
 
                         // 성공 알림: 길게 "삐이이-"
                         LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
@@ -195,32 +202,77 @@ UpdateState_t uartGetState(void)
 /* -------------------------------------------------------------------------- */
 /*                  요청/성공/실패 응답 전송 함수                                 */
 /* -------------------------------------------------------------------------- */
-/**
- * @brief  안드로이드(Ada)에게 펌웨어 전송을 요청하는 패킷 송신
- */
-void sendFwRequestToAda(void)
+
+// HMI 패킷 송신 함수 (헤더, cmd, page, unit, data, CRC(선택), 테일)
+uint32_t hmiSendPacket(uint8_t cmd, uint8_t page, uint8_t unit, uint16_t data, bool use_crc, crc_type_t crc_type)
 {
-    // [STX(0x02)] [CMD_REQ(0x05)] [LEN(0x00)] [ETX(0x03)] 형태로 정의
-    uint8_t req_pkt[] = {0x02, 0x05, 0x00, 0x03}; 
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, req_pkt, sizeof(req_pkt), 100);
+    uint8_t tx_buf[32];
+    uint32_t tx_len = 0;
+
+    // 1. 헤더 복사
+    memcpy(&tx_buf[0], "[HMI]", 5);
+    tx_len = 5;
+
+    // 2. 명령/데이터
+    tx_buf[tx_len++] = cmd;
+    tx_buf[tx_len++] = page;
+    tx_buf[tx_len++] = unit;
+    tx_buf[tx_len++] = (uint8_t)(data & 0xFFU);        // LSB
+    tx_buf[tx_len++] = (uint8_t)((data >> 8) & 0xFFU); // MSB
+
+    // 3. CRC (선택)
+    if (use_crc)
+    {
+        uint32_t calc_crc = crcCalculate(crc_type, tx_buf, tx_len);
+        uint8_t crc_len = 0;
+        switch(crc_type) {
+            case CRC_8:  crc_len = 1; break;
+            case CRC_16: crc_len = 2; break;
+            case CRC_32: crc_len = 4; break;
+            default:     crc_len = 0; break;
+        }
+        for (uint8_t i = 0; i < crc_len; i++)
+        {
+            uint8_t shift = (uint8_t)((crc_len - 1U - i) * 8U);
+            tx_buf[tx_len++] = (uint8_t)((calc_crc >> shift) & 0xFFU);
+        }
+    }
+
+    // 4. 테일 추가
+    tx_buf[tx_len++] = 0xFFU;
+    tx_buf[tx_len++] = 0xFCU;
+    tx_buf[tx_len++] = 0xFFU;
+    tx_buf[tx_len++] = 0xFFU;
+
+    // 5. 전송 (예시: 안드로이드 UART)
+    HAL_UART_Transmit(&ANDROID_UART_HANDLE, tx_buf, tx_len, 100);
+    return tx_len;
 }
 
 /**
+ * @brief  안드로이드(Ada)에게 펌웨어 전송을 요청하는 패킷 송신
+ */
+void sendFwRequestToAda(uint16_t val)
+{
+    // HMI 패킷 구조로 요청 전송 (cmd=HMI_CMD_FW_UPDATE=0x73, page/unit=0, data=val)
+    hmiSendPacket(0x73, 0x00, 0x00, val, false, CRC_NONE);
+}
+/**
  * @brief  ADA(상위)로 ACK 전송
  */
-void sendAckToAda(void)
+void sendUpdateAckToAda(void)
 {
-    uint8_t ack_pkt[] = {0x02, 0x06, 0x00, 0x03};
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, ack_pkt, sizeof(ack_pkt), 100);
+    // HMI 패킷 구조로 ACK 전송 (cmd=HMI_CMD_ACK=0x6F, page=0, unit=0x73:UPDATE, data=1:성공)
+    hmiSendPacket(0x6F, 0x00, 0x73, 0x0001, false, CRC_NONE);
 }
 
 /**
  * @brief  ADA(상위)로 NACK 전송
  */
-void sendNackToAda(void)
+void sendUpdateNackToAda(void)
 {
-    uint8_t nack_pkt[] = {0x02, 0x15, 0x00, 0x03};
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, nack_pkt, sizeof(nack_pkt), 100);
+    // HMI 패킷 구조로 NACK(실패) 전송 (cmd=HMI_CMD_ACK=0x6F, page=0, unit=0x73:UPDATE, data=0:실패)
+    hmiSendPacket(0x6F, 0x00, 0x73, 0x0000, false, CRC_NONE);
 }
 
 
