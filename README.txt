@@ -25,3 +25,50 @@ STM32F405V_Boot 파일설명
 		 부분을 원하는 주소로 수정
 
 
+----------------------
+USB 전원 및 이벤트 콜백 처리 안내
+----------------------
+
+1. USB 전원 제어 (VBus)
+   - 파일: USB_HOST/Target/usbh_conf.c
+   - 함수: USBH_LL_DriverVBus
+
+     ```c
+     USBH_StatusTypeDef USBH_LL_DriverVBus(USBH_HandleTypeDef *phost, uint8_t state)
+     {
+       if (state == 0) {
+         // 전원 OFF
+         HAL_GPIO_WritePin(USB_PENA_GPIO_Port, USB_PENA_Pin, GPIO_PIN_RESET);
+       } else {
+         // 전원 ON
+         HAL_GPIO_WritePin(USB_PENA_GPIO_Port, USB_PENA_Pin, GPIO_PIN_SET);
+       }
+       return USBH_OK;
+     }
+     ```
+
+2. USB 이벤트 콜백 (상태 전이)
+   - 파일: USB_HOST/App/usb_host.c
+   - 함수: static void USBH_UserProcess(USBH_HandleTypeDef *phost, uint8_t id)
+
+     ```c
+     switch(id)
+     {
+       case HOST_USER_SELECT_CONFIGURATION:
+         break;
+       case HOST_USER_DISCONNECTION:
+         Appli_state = APPLICATION_DISCONNECT;
+         break;
+       case HOST_USER_CLASS_ACTIVE:
+         // MSC(대용량 저장장치)가 실제로 준비된 시점에만 APPLICATION_READY로 세팅
+         Appli_state = APPLICATION_READY;
+         break;
+       case HOST_USER_CONNECTION:
+         Appli_state = APPLICATION_START;
+         break;
+       default:
+         break;
+     }
+     ```
+
+   - 반드시 HOST_USER_CLASS_ACTIVE에서만 APPLICATION_READY로 세팅해야 USB 업데이트가 정확히 동작합니다.

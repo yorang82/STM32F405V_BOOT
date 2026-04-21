@@ -49,7 +49,7 @@ UART_HandleTypeDef huart3;
 DMA_HandleTypeDef hdma_usart2_rx;
 
 /* USER CODE BEGIN PV */
-
+extern ApplicationTypeDef Appli_state;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -108,23 +108,19 @@ int main(void)
   // 1. 하드웨어 초기화
   uartUpdateInit();
 
-  LL_GPIO_SetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
-
   printf("Bootloader Started. Checking for updates...\r\n");
 
-  // [추가] 플래시 상태 정밀 점검 (Sanity Check)
+  // ------------------------------------------------------------------
+  // 0. 플래그 상태 점검 및 초기화
+  //    - PASS/ING가 아니면 'NEW'로 초기화하여 반드시 업데이트 모드 진입
+  //    - 필요시 'ING'로 바로 진입하도록 선택 구현 가능
+  // ------------------------------------------------------------------
   uint32_t current_f = Get_Flag();
-
-  // 만약 플래시가 깨끗(0xFF)하거나 쓰레기 값이 들어있다면?
-  if (current_f != FLAG_PASS && current_f != FLAG_ING) 
+  if (current_f != FLAG_PASS && current_f != FLAG_ING)
   {
-    printf("Flash Sanity Check: FLAG is 0x%08lX (not PASS/ING). Initializing to NEW.\r\n", current_f);
-      // 1. 플래시가 깨끗하거나 쓰레기 값이 들어있다면, 'NEW'로 초기화하여 업데이트를 유도합니다.
-      // 이렇게 하면 칩이 신규일 때 무조건 업데이트 모드에 머물게 됩니다.
-      // (선택 구현: 필요 시 'NEW' 대신 'ING'로 초기화하여 바로 업데이트 모드로 진입하게 할 수도 있습니다.)
-      // Update_Flag(FLAG_ING); // 바로 'ING'로 초기화하여 업데이트 모드로 진입 유도
-
-    Update_Flag(FLAG_NEW);
+    printf("[BOOT] Flash FLAG=0x%08lX (not PASS/ING). Set to NEW.\r\n", current_f);
+    // Update_Flag(FLAG_ING); // 바로 업데이트 모드 진입 원할 때 사용
+    Update_Flag(FLAG_NEW);    // 신규/이상치면 무조건 업데이트 유도
   }
 
   /* USER CODE END 2 */
@@ -139,11 +135,28 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
     /* ------------------------------------------------------------------ */
-    /*                1. USB 업데이트 프로세스 실행 (update.bin 체크)        */
+    /* 1. USB 이벤트 기반 업데이트 프로세스                                 */
     /* ------------------------------------------------------------------ */
-    printf("Checking for USB update...\r\n");
-    Process_USB_Update();
-    // USB에서 이미 성공했다면 바로 루프 탈출!
+    switch (Appli_state)
+    {
+      case APPLICATION_READY:
+        // USB MSC가 완전히 준비된 후에만 업데이트 시도
+        printf("[USB] MSC Ready. Start update!\r\n");
+        Process_USB_Update();
+        Appli_state = APPLICATION_IDLE; // 중복 실행 방지
+        break;
+
+      case APPLICATION_DISCONNECT:
+        printf("[USB] MSC Unplugged.\r\n");
+        // 필요시 f_mount(NULL, ...) 등 정리
+        Appli_state = APPLICATION_IDLE;
+        break;
+
+      default:
+        // MSC 준비 전 또는 IDLE 상태
+        break;
+    }
+    // USB 업데이트 성공 시 루프 탈출
     if (Get_Flag() == FLAG_PASS) break;
 
     printf("No updates found. Checking UART...\r\n");

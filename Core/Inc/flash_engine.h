@@ -28,7 +28,7 @@
 #define FLAG_PASS         0x50415353   // 'PASS'
 #define FLAG_NEW          0x4E455720   // 'NEW '
 #define FLAG_ING          0x494E4720   // 'ING '
-#define FLASH_CHUNK_SIZE  2048         // Flash 1회 읽기/쓰기 크기 (2KB 권장)
+#define FLASH_CHUNK_SIZE  128         // Flash 1회 읽기/쓰기 크기 (128B 권장)
 
 // ------------------- 앱 영역 (Sector 5~6) -------------------
 #define APP_START_ADDR    0x08020000   // Sector 5 시작 주소

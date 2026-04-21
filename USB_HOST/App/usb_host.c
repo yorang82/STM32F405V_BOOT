@@ -106,22 +106,23 @@ static void USBH_UserProcess  (USBH_HandleTypeDef *phost, uint8_t id)
   switch(id)
   {
   case HOST_USER_SELECT_CONFIGURATION:
-  break;
+    break;
 
   case HOST_USER_DISCONNECTION:
-  Appli_state = APPLICATION_DISCONNECT;
-  break;
+    Appli_state = APPLICATION_DISCONNECT;
+    break;
 
   case HOST_USER_CLASS_ACTIVE:
-  Appli_state = APPLICATION_READY;
-  break;
+    // MSC(대용량 저장장치)가 실제로 준비된 시점에만 APPLICATION_READY로 세팅
+    Appli_state = APPLICATION_READY;
+    break;
 
   case HOST_USER_CONNECTION:
-  Appli_state = APPLICATION_START;
-  break;
+    Appli_state = APPLICATION_START;
+    break;
 
   default:
-  break;
+    break;
   }
   /* USER CODE END CALL_BACK_1 */
 }

@@ -44,18 +44,11 @@ HAL_StatusTypeDef Erase_App_Sectors(void)
  */
 HAL_StatusTypeDef Write_Flash(uint32_t DestAddr, uint8_t *pData, uint32_t DataLen)
 {
-	// [추가] 데이터 기록 시작 전 부저 ON
-	LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
-
     for (uint32_t i = 0; i < DataLen; i += 4) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, DestAddr + i, *(uint32_t*)(pData + i)) != HAL_OK) {
-        	// [추가] 쓰기 실패 시 부저를 끄고 에러 반환
-        	LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
             return HAL_ERROR;
         }
     }
-    // [추가] 해당 블록(2KB) 기록 완료 후 부저 OFF
-    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
 
     return HAL_OK;
 }
@@ -115,25 +108,26 @@ bool Is_App_Valid(void)
  * @brief  지정 주소로 코드 점프 (Application 실행)
  * @param  address  점프할 시작 주소
  */
-void Jump_To_Application(uint32_t address)
-{
-    typedef void (*pFunction)(void);
+void Jump_To_Application(uint32_t address) {
+    // 안차장님 코드의 핵심: USB 관련 인터럽트와 클럭을 완전히 끄기
+    HAL_NVIC_DisableIRQ(OTG_FS_IRQn);
+    __HAL_RCC_USB_OTG_FS_CLK_DISABLE();
 
-    // [보완] 점프 전 모든 인터럽트를 비활성화합니다.
+    HAL_RCC_DeInit();
+    HAL_DeInit();
+
+    // 모든 인터럽트 마스킹 및 메모리 장벽 설정
+    __set_PRIMASK(1);
     __disable_irq();
+    __DSB();
+    __ISB();
 
-    // [보완] 시스틱 타이머 정지 (HAL_Delay 등 영향 방지)
-    SysTick->CTRL = 0;
-    SysTick->VAL = 0;
+    uint32_t jumpAddress = *(__IO uint32_t*)(address + 4);
+    void (*pJump)(void) = (void (*)(void))jumpAddress;
 
-    // [보완] 주변 장치 인터럽트 클리어 (필요 시 NVIC_ICER 등 사용)
-
-    uint32_t JumpAddress = *(volatile uint32_t*)(address + 4);
-    pFunction JumpToApp = (pFunction)JumpAddress;
-
-    // Stack Pointer 설정 및 점프
-    __set_MSP(*(volatile uint32_t*)address);
-    JumpToApp();
+    __set_MSP(*(__IO uint32_t*)address);
+    SCB->VTOR = address; // 벡터 테이블 재배치
+    pJump();
 }
 
 
