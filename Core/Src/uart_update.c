@@ -117,6 +117,11 @@ void processFullPacket(uint8_t *buf, uint32_t len)
                 }
                 HAL_FLASH_Lock();
                 break;
+            default:
+                // [여기가 쓰레기 처리장!]
+                // Ada가 보낸 setpage(UNIT이 1,2,3이 아닌 경우)는 여기서 그냥 무시됩니다.
+                // 아무런 응답(ACK)도 주지 않고 조용히 넘어가는 게 포인트입니다.
+                break;
         }
     }
     // 3. [UPD] 펌웨어 데이터 기록
