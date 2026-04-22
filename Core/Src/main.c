@@ -112,13 +112,13 @@ int main(void)
 
   // ------------------------------------------------------------------
   // 0. 플래그 상태 점검 및 초기화
-  //    - PASS/ING가 아니면 'NEW'로 초기화하여 반드시 업데이트 모드 진입
-  //    - 필요시 'ING'로 바로 진입하도록 선택 구현 가능
+  //    - PASS/READY가 아니면 'NEW'로 초기화하여 반드시 업데이트 모드 진입
+  //    - 필요시 'ING'로 바로 업데이트 모드 진입하도록 선택 구현 가능
   // ------------------------------------------------------------------
   uint32_t current_f = Get_Flag();
-  if (current_f != FLAG_PASS && current_f != FLAG_ING)
+  if (current_f != FLAG_PASS && current_f !=  FLAG_READY  )
   {
-    printf("[BOOT] Flash FLAG=0x%08lX (not PASS/ING). Set to NEW.\r\n", current_f);
+    printf("[BOOT] Flash FLAG=0x%08lX (not PASS/READY). Set to NEW.\r\n", current_f);
     // Update_Flag(FLAG_ING); // 바로 업데이트 모드 진입 원할 때 사용
     Update_Flag(FLAG_NEW);    // 신규/이상치면 무조건 업데이트 유도
   }
@@ -174,12 +174,12 @@ int main(void)
             break;
         }
 
-        // [핵심] FLAG_NEW(앱 없음)가 아닐 때만 3초 타임아웃 적용
-        if (Get_Flag() != FLAG_NEW) {
-            if ((HAL_GetTick() - start_tick) > 3000) {
-                printf("[BOOT] UART Timeout. Next sequence...\r\n");
-                break; // 3초 지나면 루프 나가서 다시 USB부터 체크
-            }
+        // [핵심] FLAG_NEW 또는 FLAG_ING(업데이트 중)일 때는 무한 대기
+        if (Get_Flag() != FLAG_NEW && Get_Flag() != FLAG_ING) {
+          if ((HAL_GetTick() - start_tick) > 3000) {
+            printf("[BOOT] UART Timeout. Next sequence...\r\n");
+            break; // 3초 지나면 루프 나가서 다시 USB부터 체크
+          }
         }
         // FLAG_NEW 상태라면 break를 만나지 않고 Ada가 응답할 때까지 무한 대기
     }

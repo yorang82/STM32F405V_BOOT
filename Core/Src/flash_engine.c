@@ -44,13 +44,23 @@ HAL_StatusTypeDef Erase_App_Sectors(void)
  */
 HAL_StatusTypeDef Write_Flash(uint32_t DestAddr, uint8_t *pData, uint32_t DataLen)
 {
+    HAL_StatusTypeDef status = HAL_OK;
+    // Flash Unlock
+    if (HAL_FLASH_Unlock() != HAL_OK) {
+        return HAL_ERROR;
+    }
+
     for (uint32_t i = 0; i < DataLen; i += 4) {
         if (HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, DestAddr + i, *(uint32_t*)(pData + i)) != HAL_OK) {
-            return HAL_ERROR;
+            status = HAL_ERROR;
+            break;
         }
     }
 
-    return HAL_OK;
+    // Flash Lock
+    HAL_FLASH_Lock();
+
+    return status;
 }
 
 

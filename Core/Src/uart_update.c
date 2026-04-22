@@ -10,6 +10,7 @@
 #include <string.h>
 #include <stdbool.h>
 
+
 // ==============================================================================
 // 1. 프로토콜 및 패킷 정의
 // ==============================================================================
@@ -17,7 +18,27 @@
 #define UPD_HDR          "[UPD]"
 #define PKT_TAIL         "\xFF\xFC\xFF\xFF"
 
-#define HMI_PKT_LEN      18    // [HMI](5) + CMD(1)+PAGE(1)+UNIT(1)+VAL(2) + CRC(4) + TAIL(4)
+// ==============================================================================
+// [환경 설정] 여기서 사용할 CRC 타입을 한 번만 정의하세요!
+// ==============================================================================
+#define CONFIG_HMI_CRC_TYPE    CRC_NONE  // 옵션: CRC_NONE, CRC_8, CRC_16, CRC_32
+
+// ------------------------------------------------------------------------------
+// 아래는 건드리지 마세요. (설정에 따라 자동 계산되는 매크로)
+// ------------------------------------------------------------------------------
+#if (CONFIG_HMI_CRC_TYPE == CRC_NONE)
+    #define CONFIG_CRC_LEN 0
+#elif (CONFIG_HMI_CRC_TYPE == CRC_8)
+    #define CONFIG_CRC_LEN 1
+#elif (CONFIG_HMI_CRC_TYPE == CRC_16)
+    #define CONFIG_CRC_LEN 2
+#elif (CONFIG_HMI_CRC_TYPE == CRC_32)
+    #define CONFIG_CRC_LEN 4
+#else
+    #define CONFIG_CRC_LEN 0
+#endif
+
+#define HMI_PKT_LEN      (14 + CONFIG_CRC_LEN)    // [HMI](5) + CMD(1)+PAGE(1)+UNIT(1)+VAL(2) + CRC(가변) + TAIL(4)
 #define UPD_PKT_LEN      141   // [UPD](5) + DATA(128) + CRC(4) + TAIL(4)
 #define UPD_DATA_SIZE    128   // STM32 Flash 4바이트 정렬 최적화 크기
 
@@ -81,6 +102,7 @@ void processFullPacket(uint8_t *buf, uint32_t len)
                 sendUpdateAckToAda();
                 break;
             case 3: // 종료 커맨드 (UNIT 3)
+                printf("[UPD] END CMD received\n");
                 Update_Flag(FLAG_PASS);
                 sendUpdateAckToAda();
                 HAL_FLASH_Lock();
@@ -95,12 +117,23 @@ void processFullPacket(uint8_t *buf, uint32_t len)
     // 3. [UPD] 펌웨어 데이터 기록
     else if (memcmp(buf, UPD_HDR, 5) == 0) {
         // Write_Flash(오프셋, 데이터, 크기)
-        if (Write_Flash(fw_offset, &buf[5], UPD_DATA_SIZE) == HAL_OK) {
+        uint32_t dest_addr = APP_START_ADDR + fw_offset;
+        if ((dest_addr + UPD_DATA_SIZE - 1) > 0x0805FFFF) {
+            printf("[UPD][ERR] Write out of range! addr=0x%08lX\n", dest_addr);
+            sendUpdateNackToAda();
+            return;
+        }
+        printf("[UPD] Write_Flash addr=0x%08lX, offset=0x%08lX\n", dest_addr, fw_offset);
+        HAL_StatusTypeDef res = Write_Flash(dest_addr, &buf[5], UPD_DATA_SIZE);
+        if (res == HAL_OK) {
             fw_offset += UPD_DATA_SIZE;
+            HAL_Delay(2); // Flash 연속 쓰기 안정화 지연
             sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
+            // printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
             // 기록 중 부저 반전
             LL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
         } else {
+            printf("[UPD][ERR] Flash Write Fail! addr=0x%08lX, offset=0x%08lX, ret=%d\n", dest_addr, fw_offset, res);
             sendUpdateNackToAda();
         }
     }
@@ -113,7 +146,6 @@ void uartHandleByte(uint8_t byte)
 {
     pkt_processing_buffer[pkt_idx++] = byte;
 
-    // A. 헤더 동기화 (5바이트 시점)
     if (pkt_idx == 5) {
         if (memcmp(pkt_processing_buffer, HMI_HDR, 5) != 0 && 
             memcmp(pkt_processing_buffer, UPD_HDR, 5) != 0) {
@@ -123,7 +155,7 @@ void uartHandleByte(uint8_t byte)
         }
     }
 
-    // B. 패킷 완성 시 처리 (HMI=18, UPD=141)
+    // HMI_PKT_LEN이 14든 16이든 18이든 알아서 딱 맞춰서 파싱합니다.
     if (memcmp(pkt_processing_buffer, HMI_HDR, 5) == 0 && pkt_idx >= HMI_PKT_LEN) {
         processFullPacket(pkt_processing_buffer, HMI_PKT_LEN);
         pkt_idx = 0;
@@ -133,45 +165,48 @@ void uartHandleByte(uint8_t byte)
         pkt_idx = 0;
     }
 
-    if (pkt_idx >= 155) pkt_idx = 0; 
+    if (pkt_idx >= sizeof(pkt_processing_buffer)) pkt_idx = 0; 
 }
 
 // ==============================================================================
-// 5. 송신 엔진 (Transmitter)
+// 5. 송신 엔진 (환경 설정에 따라 자동 동작)
 // ==============================================================================
-
-/**
- * @brief HMI 규격으로 패킷 송신
- */
 void hmiSendPacket(uint8_t cmd, uint8_t page, uint8_t unit, uint16_t val)
 {
-    uint8_t tx_buf[20];
-    memcpy(tx_buf, HMI_HDR, 5);
-    tx_buf[5] = cmd;
-    tx_buf[6] = page;
-    tx_buf[7] = unit;
-    tx_buf[8] = (uint8_t)(val & 0xFF);
-    tx_buf[9] = (uint8_t)((val >> 8) & 0xFF);
+    // 상단 설정에 따라 버퍼 크기(14~18)가 컴파일 타임에 자동 할당됨
+    uint8_t tx_buf[HMI_PKT_LEN]; 
+    uint32_t idx = 0;
     
-    // CRC (간소화: 0으로 채움 또는 실제 CRC 함수 연결)
-    memset(&tx_buf[10], 0, 4); 
-    
-    // Tail
-    memcpy(&tx_buf[14], PKT_TAIL, 4);
+    memcpy(&tx_buf[idx], HMI_HDR, 5); idx += 5;
+    tx_buf[idx++] = cmd;
+    tx_buf[idx++] = page;
+    tx_buf[idx++] = unit;
+    tx_buf[idx++] = (uint8_t)(val & 0xFF);
+    tx_buf[idx++] = (uint8_t)((val >> 8) & 0xFF);
 
-    HAL_UART_Transmit(&ANDROID_UART_HANDLE, tx_buf, 18, 100);
+    // CRC 길이가 0보다 클 때만 자동으로 계산 후 부착
+    #if (CONFIG_CRC_LEN > 0)
+        uint32_t crc = crcCalculate(CONFIG_HMI_CRC_TYPE, tx_buf, idx);
+        for (uint8_t i = 0; i < CONFIG_CRC_LEN; i++) {
+            uint8_t shift = (uint8_t)((CONFIG_CRC_LEN - 1U - i) * 8U);
+            tx_buf[idx++] = (uint8_t)((crc >> shift) & 0xFF);
+        }
+    #endif
+    
+    memcpy(&tx_buf[idx], PKT_TAIL, 4); idx += 4;
+
+    HAL_UART_Transmit(&ANDROID_UART_HANDLE, tx_buf, idx, 100);
 }
 
+// 호출부가 훨씬 깔끔해집니다!
 void sendFwRequestToAda(uint16_t val) {
     hmiSendPacket(0x73, 0x00, 0x00, val);
 }
-
 void sendUpdateAckToAda(void) {
-    hmiSendPacket(0x6F, 0x00, 0x73, 0x0001); // 1: 성공
+    hmiSendPacket(0x6F, 0x00, 0x73, 0x0001);
 }
-
 void sendUpdateNackToAda(void) {
-    hmiSendPacket(0x6F, 0x00, 0x73, 0x0000); // 0: 실패
+    hmiSendPacket(0x6F, 0x00, 0x73, 0x0000); 
 }
 
 // ==============================================================================
