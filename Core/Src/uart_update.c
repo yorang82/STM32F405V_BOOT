@@ -56,6 +56,56 @@ bool uartUpdateInit(void)
     return true;
 }
 
+// ==============================================================================
+// 4. 실행 엔진 (Processor)
+// ==============================================================================
+
+void processFullPacket(uint8_t *buf, uint32_t len)
+{
+    // 1. 테일 검증
+    if (memcmp(&buf[len - 4], PKT_TAIL, 4) != 0) return;
+
+    // 2. [HMI] 커맨드 분기 처리
+    if (memcmp(buf, HMI_HDR, 5) == 0) {
+        uint8_t unit = buf[7]; // UNIT: 1(Start), 2(Data Ready), 3(End)
+        
+        switch(unit) {
+            case 1: // 시작 커맨드 (0x73, UNIT 1)
+                if (Erase_App_Sectors() == HAL_OK) { // 성공
+                    Update_Flag(FLAG_ING);
+                    fw_offset = 0;
+                    sendUpdateAckToAda();
+                }
+                break;
+            case 2: // 데이터 준비 (UNIT 2)
+                sendUpdateAckToAda();
+                break;
+            case 3: // 종료 커맨드 (UNIT 3)
+                Update_Flag(FLAG_PASS);
+                sendUpdateAckToAda();
+                HAL_FLASH_Lock();
+                break;
+            default:
+                // [여기가 쓰레기 처리장!]
+                // Ada가 보낸 setpage(UNIT이 1,2,3이 아닌 경우)는 여기서 그냥 무시됩니다.
+                // 아무런 응답(ACK)도 주지 않고 조용히 넘어가는 게 포인트입니다.
+                break;
+        }
+    }
+    // 3. [UPD] 펌웨어 데이터 기록
+    else if (memcmp(buf, UPD_HDR, 5) == 0) {
+        // Write_Flash(오프셋, 데이터, 크기)
+        if (Write_Flash(fw_offset, &buf[5], UPD_DATA_SIZE) == HAL_OK) {
+            fw_offset += UPD_DATA_SIZE;
+            sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
+            // 기록 중 부저 반전
+            LL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
+        } else {
+            sendUpdateNackToAda();
+        }
+    }
+}
+
 /**
  * @brief 한 바이트씩 분석하여 패킷을 조립하고 분류함
  */
@@ -84,59 +134,6 @@ void uartHandleByte(uint8_t byte)
     }
 
     if (pkt_idx >= 155) pkt_idx = 0; 
-}
-
-// ==============================================================================
-// 4. 실행 엔진 (Processor)
-// ==============================================================================
-
-void processFullPacket(uint8_t *buf, uint32_t len)
-{
-    // 1. 테일 검증
-    if (memcmp(&buf[len - 4], PKT_TAIL, 4) != 0) return;
-
-    // 2. [HMI] 커맨드 분기 처리
-    if (memcmp(buf, HMI_HDR, 5) == 0) {
-        uint8_t unit = buf[7]; // UNIT: 1(Start), 2(Data Ready), 3(End)
-        
-        switch(unit) {
-            case 1: // 시작 커맨드 (0x73, UNIT 1)
-                if (fw_storage_erase() == 0) { // 0: 성공
-                    Update_Flag(FLAG_ING);
-                    fw_offset = 0;
-                    sendUpdateAckToAda();
-                }
-                break;
-            case 2: // 데이터 준비 (UNIT 2)
-                sendUpdateAckToAda();
-                break;
-            case 3: // 종료 커맨드 (UNIT 3)
-                if (fw_storage_set_fw_valid() == 0) {
-                    Update_Flag(FLAG_PASS);
-                    sendUpdateAckToAda();
-                }
-                HAL_FLASH_Lock();
-                break;
-            default:
-                // [여기가 쓰레기 처리장!]
-                // Ada가 보낸 setpage(UNIT이 1,2,3이 아닌 경우)는 여기서 그냥 무시됩니다.
-                // 아무런 응답(ACK)도 주지 않고 조용히 넘어가는 게 포인트입니다.
-                break;
-        }
-    }
-    // 3. [UPD] 펌웨어 데이터 기록
-    else if (memcmp(buf, UPD_HDR, 5) == 0) {
-        // fw_storage_write(오프셋, 데이터, 크기)
-        if (fw_storage_write(fw_offset, &buf[5], UPD_DATA_SIZE) == 0) {
-            fw_offset += UPD_DATA_SIZE;
-            sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
-            
-            // 기록 중 부저 반전
-            LL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
-        } else {
-            sendUpdateNackToAda();
-        }
-    }
 }
 
 // ==============================================================================

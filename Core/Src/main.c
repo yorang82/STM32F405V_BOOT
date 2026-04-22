@@ -108,7 +108,7 @@ int main(void)
   // 1. 하드웨어 초기화
   uartUpdateInit();
 
-  printf("Bootloader Started. Checking for updates...\r\n");
+  printf("[BOOT] Bootloader Started. Checking for updates...\r\n");
 
   // ------------------------------------------------------------------
   // 0. 플래그 상태 점검 및 초기화
@@ -130,77 +130,78 @@ int main(void)
   while (1)
   {
     uint32_t start_tick = HAL_GetTick();
-    uint8_t usb_update_success = 0;
-    uint8_t uart_update_success = 0;
+    bool usb_success = false;
+    bool uart_success = false;
 
     /* ------------------------------------------------------------------ */
-    /* 1. USB 인식 대기 (최대 3초)                                         */
+    /* STEP 1. USB 인식 대기 (최대 3초)               */
     /* ------------------------------------------------------------------ */
-    printf("[BOOT] USB MSC WAITING... (MAX 3 SEC)\r\n");
+    printf("[BOOT] USB Waiting... (Max 3s)\r\n");
     while ((HAL_GetTick() - start_tick) < 3000)
     {
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
 
     /* USER CODE BEGIN 3 */
-         if (Appli_state == APPLICATION_READY)
-      {
-        printf("[USB] MSC Ready. Start update!\r\n");
-        Process_USB_Update();
-        if (Get_Flag() == FLAG_PASS) {
-          usb_update_success = 1;
-          break;
+    if (Appli_state == APPLICATION_READY)
+        {
+            printf("[USB] File Found! Starting update...\r\n");
+            Process_USB_Update(); // USB 업데이트 실행
+            
+            if (Get_Flag() == FLAG_PASS) {
+                usb_success = true;
+                break;
+            }
+            Appli_state = APPLICATION_IDLE;
         }
-        Appli_state = APPLICATION_IDLE;
-      }
-      if (Appli_state == APPLICATION_DISCONNECT)
-      {
-        printf("[USB] MSC Unplugged.\r\n");
-        Appli_state = APPLICATION_IDLE;
-      }
     }
-       if (usb_update_success) break;
+    if (usb_success) break; // USB 성공 시 루프 탈출 -> 앱으로 점프
 
     /* ------------------------------------------------------------------ */
-    /* 2. UART 업데이트 대기 (최대 3초)                                     */
-    /* ------------------------------------------------------------------ */  
-    if (Get_Flag() == FLAG_PASS) {
-      uart_update_success = 1;
-      break;
-    }
+    /* STEP 2. UART 업데이트 대기 (NEW일 땐 무한, 아닐 땐 3초) */
+    /* ------------------------------------------------------------------ */
     start_tick = HAL_GetTick();
-    printf("[BOOT] UART UPDATE WAITING... (MAX 3 SEC)\r\n");
-    while ((HAL_GetTick() - start_tick) < 3000)
+    printf("[BOOT] UART Waiting... (FLAG=0x%08lX)\r\n", Get_Flag());
+
+    while (1)
     {
-      uartUpdateProcess();
-      if (Get_Flag() == FLAG_PASS) {
-        uart_update_success = 1;
-        break;
-      }
+        // Ada에게 펌웨어 요청 (1초 간격으로 20 또는 44 전송)
+        uartUpdateProcess(); 
+
+        // 인터럽트에서 플래시 기록 완료 시 FLAG_PASS로 변경됨
+        if (Get_Flag() == FLAG_PASS) {
+            uart_success = true;
+            break;
+        }
+
+        // [핵심] FLAG_NEW(앱 없음)가 아닐 때만 3초 타임아웃 적용
+        if (Get_Flag() != FLAG_NEW) {
+            if ((HAL_GetTick() - start_tick) > 3000) {
+                printf("[BOOT] UART Timeout. Next sequence...\r\n");
+                break; // 3초 지나면 루프 나가서 다시 USB부터 체크
+            }
+        }
+        // FLAG_NEW 상태라면 break를 만나지 않고 Ada가 응답할 때까지 무한 대기
     }
-    if (uart_update_success) break;
-    // 이후 다시 USB로 루프 반복
+
+    if (uart_success) break; // UART 성공 시 루프 탈출 -> 앱으로 점프
   }
 
-  printf("Update successful. Jumping to application...\r\n");
-  
-  /* -------------------------------------------------------------------- */
-  /*                앱으로 점프하기 전 주변장치 정리                       */
-  /* -------------------------------------------------------------------- */
-  __disable_irq(); // 모든 인터럽트 중단
-  for (int i = 0; i < 8; i++) NVIC->ICER[i] = 0xFFFFFFFF; // NVIC 클리어
+  /* ---------------------------------------------------------------------- */
+  /* STEP 3. 최종 점프 (모든 업데이트 프로세스 종료 후)       */
+  /* ---------------------------------------------------------------------- */
+  printf("[BOOT] Update Done! Jumping to App...\r\n");
+
+  // 인터럽트 정리 및 DeInit (점프 전 필수)
+  __disable_irq();
   HAL_RCC_DeInit();
   HAL_DeInit();
 
-  /* -------------------------------------------------------------------- */
-  /*                최종 앱 실행                                          */
-  /* -------------------------------------------------------------------- */
-  if (Is_App_Valid())
-  {
-      Jump_To_Application(APP_START_ADDR);
+  if (Is_App_Valid()) {
+    Jump_To_Application(APP_START_ADDR);
   }
 
-  while (1); // 실패 시 대기
+  while(1); // 점프 실패 시 대기
   /* USER CODE END 3 */
 }
 
