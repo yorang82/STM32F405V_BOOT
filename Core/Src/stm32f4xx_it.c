@@ -57,9 +57,11 @@
 /* External variables --------------------------------------------------------*/
 extern HCD_HandleTypeDef hhcd_USB_OTG_FS;
 extern DMA_HandleTypeDef hdma_usart2_rx;
+extern UART_HandleTypeDef huart2;
 extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
-
+// "이 버퍼는 다른 파일(uart_update.c)에 있으니까 거기서 찾아!"라고 알려주는 겁니다.
+extern uint8_t dma_rx_buffer[];
 /* USER CODE END EV */
 
 /******************************************************************************/
@@ -212,6 +214,35 @@ void DMA1_Stream5_IRQHandler(void)
   /* USER CODE BEGIN DMA1_Stream5_IRQn 1 */
 
   /* USER CODE END DMA1_Stream5_IRQn 1 */
+}
+
+/**
+  * @brief This function handles USART2 global interrupt.
+  */
+void USART2_IRQHandler(void)
+{
+  /* USER CODE BEGIN USART2_IRQn 0 */
+// [핵심] IDLE 플래그가 세워졌는지 확인
+if (__HAL_UART_GET_FLAG(&huart2, UART_FLAG_IDLE)) 
+  {
+      __HAL_UART_CLEAR_IDLEFLAG(&huart2);
+
+      // [수정] sizeof(dma_rx_buffer) 대신 실제 크기(1088)를 직접 쓰세요.
+      uint32_t length = 1088 - __HAL_DMA_GET_COUNTER(huart2.hdmarx); 
+
+      for (uint32_t i = 0; i < length; i++) {
+          uartHandleByte(dma_rx_buffer[i]); 
+      }
+
+      HAL_UART_AbortReceive(&huart2);
+      // [수정] 여기도 sizeof 대신 1088!
+      HAL_UART_Receive_DMA(&huart2, dma_rx_buffer, 1088); 
+  }
+  /* USER CODE END USART2_IRQn 0 */
+  HAL_UART_IRQHandler(&huart2);
+  /* USER CODE BEGIN USART2_IRQn 1 */
+
+  /* USER CODE END USART2_IRQn 1 */
 }
 
 /**

@@ -127,78 +127,13 @@ int main(void)
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
-
   while (1)
   {
-    uint32_t start_tick = HAL_GetTick();
-    uint8_t usb_update_success = 0;
-    uint8_t uart_update_success = 0;
+    /* USER CODE END WHILE */
+    MX_USB_HOST_Process();
 
-    /* ------------------------------------------------------------------ */
-    /* 1. USB 인식 대기 (최대 3초)                                         */
-    /* ------------------------------------------------------------------ */
-    printf("[BOOT] USB MSC WAITING... (MAX 3 SEC)\r\n");
-    while ((HAL_GetTick() - start_tick) < 3000)
-    {
-      MX_USB_HOST_Process();
-      if (Appli_state == APPLICATION_READY)
-      {
-        printf("[USB] MSC Ready. Start update!\r\n");
-        Process_USB_Update();
-        if (Get_Flag() == FLAG_PASS) {
-          usb_update_success = 1;
-          break;
-        }
-        Appli_state = APPLICATION_IDLE;
-      }
-      if (Appli_state == APPLICATION_DISCONNECT)
-      {
-        printf("[USB] MSC Unplugged.\r\n");
-        Appli_state = APPLICATION_IDLE;
-      }
-    }
-    if (usb_update_success) break;
-
-    /* ------------------------------------------------------------------ */
-    /* 2. UART 업데이트 대기 (최대 3초)                                     */
-    /* ------------------------------------------------------------------ */  
-    if (Get_Flag() == FLAG_PASS) {
-      uart_update_success = 1;
-      break;
-    }
-    start_tick = HAL_GetTick();
-    printf("[BOOT] UART UPDATE WAITING... (MAX 3 SEC)\r\n");
-    while ((HAL_GetTick() - start_tick) < 3000)
-    {
-      uartUpdateProcess();
-      if (Get_Flag() == FLAG_PASS) {
-        uart_update_success = 1;
-        break;
-      }
-    }
-    if (uart_update_success) break;
-    // 이후 다시 USB로 루프 반복
+    /* USER CODE BEGIN 3 */
   }
-
-  printf("Update successful. Jumping to application...\r\n");
-  
-  /* -------------------------------------------------------------------- */
-  /*                앱으로 점프하기 전 주변장치 정리                       */
-  /* -------------------------------------------------------------------- */
-  __disable_irq(); // 모든 인터럽트 중단
-  for (int i = 0; i < 8; i++) NVIC->ICER[i] = 0xFFFFFFFF; // NVIC 클리어
-  HAL_RCC_DeInit();
-  HAL_DeInit();
-
-  /* -------------------------------------------------------------------- */
-  /*                최종 앱 실행                                          */
-  /* -------------------------------------------------------------------- */
-  if (Is_App_Valid())
-  {
-      Jump_To_Application(APP_START_ADDR);
-  }
-
-  while (1); // 실패 시 대기
   /* USER CODE END 3 */
 }
 
