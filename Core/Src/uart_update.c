@@ -18,28 +18,15 @@
 #define UPD_HDR          "[UPD]"
 #define PKT_TAIL         "\xFF\xFC\xFF\xFF"
 
-// ==============================================================================
-// [환경 설정] 여기서 사용할 CRC 타입을 한 번만 정의하세요!
-// ==============================================================================
-#define CONFIG_HMI_CRC_TYPE    CRC_NONE  // 옵션: CRC_NONE, CRC_8, CRC_16, CRC_32
-
-// ------------------------------------------------------------------------------
-// 아래는 건드리지 마세요. (설정에 따라 자동 계산되는 매크로)
-// ------------------------------------------------------------------------------
-#if (CONFIG_HMI_CRC_TYPE == CRC_NONE)
-    #define CONFIG_CRC_LEN 0
-#elif (CONFIG_HMI_CRC_TYPE == CRC_8)
-    #define CONFIG_CRC_LEN 1
-#elif (CONFIG_HMI_CRC_TYPE == CRC_16)
-    #define CONFIG_CRC_LEN 2
-#elif (CONFIG_HMI_CRC_TYPE == CRC_32)
-    #define CONFIG_CRC_LEN 4
-#else
-    #define CONFIG_CRC_LEN 0
-#endif
+// ============================================================================== 
+// [환경 설정] 여기서 사용할 CRC 타입을 한 번만 정의하세요! 
+// ============================================================================== 
+// CRC 타입 enum은 crc.h에 이미 정의되어 있으므로 중복 정의하지 않음
+#define CONFIG_HMI_CRC_TYPE    CRC_16  // 옵션: CRC_NONE, CRC_8, CRC_16, CRC_32
+#define CONFIG_CRC_LEN              2  // CRC_16의 경우 2바이트, CRC_32의 경우 4바이트, CRC_NONE의 경우 0바이트
 
 #define HMI_PKT_LEN      (14 + CONFIG_CRC_LEN)    // [HMI](5) + CMD(1)+PAGE(1)+UNIT(1)+VAL(2) + CRC(가변) + TAIL(4)
-#define UPD_PKT_LEN      141   // [UPD](5) + DATA(128) + CRC(4) + TAIL(4)
+#define UPD_PKT_LEN      (141 + CONFIG_CRC_LEN)   // [UPD](5) + OFFSET(4) + DATA(128) + CRC(가변) + TAIL(4)
 #define UPD_DATA_SIZE    128   // STM32 Flash 4바이트 정렬 최적화 크기
 
 // ==============================================================================
@@ -92,9 +79,22 @@ void processFullPacket(uint8_t *buf, uint32_t len)
         
         switch(unit) {
             case 1: // 시작 커맨드 (0x73, UNIT 1)
+                // UART 속도 38400으로 변경
+                printf("[UPD] START CMD received\n");
+                HAL_UART_AbortReceive(&ANDROID_UART_HANDLE);
+                ANDROID_UART_HANDLE.Init.BaudRate = 38400;
+                printf("[UPD] UART baud rate set to 38400\n");
+                if (HAL_UART_Init(&ANDROID_UART_HANDLE) != HAL_OK) {
+                    Error_Handler();
+                }
+                // DMA 재시작
+                HAL_UART_Receive_DMA(&ANDROID_UART_HANDLE, dma_rx_buffer, sizeof(dma_rx_buffer));
+                __HAL_UART_CLEAR_IDLEFLAG(&ANDROID_UART_HANDLE);
+                __HAL_UART_ENABLE_IT(&ANDROID_UART_HANDLE, UART_IT_IDLE);
                 if (Erase_App_Sectors() == HAL_OK) { // 성공
                     Update_Flag(FLAG_ING);
                     fw_offset = 0;
+                    printf("[UPD] App sectors erased, ready for data\n");
                     sendUpdateAckToAda();
                 }
                 break;
@@ -104,6 +104,15 @@ void processFullPacket(uint8_t *buf, uint32_t len)
             case 3: // 종료 커맨드 (UNIT 3)
                 printf("[UPD] END CMD received\n");
                 Update_Flag(FLAG_PASS);
+                // UART 속도 115200으로 복구
+                HAL_UART_AbortReceive(&ANDROID_UART_HANDLE);
+                ANDROID_UART_HANDLE.Init.BaudRate = 115200;
+                if (HAL_UART_Init(&ANDROID_UART_HANDLE) != HAL_OK) {
+                    Error_Handler();
+                }
+                HAL_UART_Receive_DMA(&ANDROID_UART_HANDLE, dma_rx_buffer, sizeof(dma_rx_buffer));
+                __HAL_UART_CLEAR_IDLEFLAG(&ANDROID_UART_HANDLE);
+                __HAL_UART_ENABLE_IT(&ANDROID_UART_HANDLE, UART_IT_IDLE);
                 sendUpdateAckToAda();
                 HAL_FLASH_Lock();
                 break;
@@ -116,24 +125,47 @@ void processFullPacket(uint8_t *buf, uint32_t len)
     }
     // 3. [UPD] 펌웨어 데이터 기록
     else if (memcmp(buf, UPD_HDR, 5) == 0) {
-        // Write_Flash(오프셋, 데이터, 크기)
-        uint32_t dest_addr = APP_START_ADDR + fw_offset;
+        // [UPD][OFFSET(4)][DATA(128)][CRC][TAIL]
+        uint32_t offset = (uint32_t)buf[5] |
+                          ((uint32_t)buf[6] << 8) |
+                          ((uint32_t)buf[7] << 16) |
+                          ((uint32_t)buf[8] << 24);
+        uint32_t dest_addr = APP_START_ADDR + offset;
+
+        // 1. Flash 기록 주소 범위 체크
         if ((dest_addr + UPD_DATA_SIZE - 1) > 0x0805FFFF) {
             printf("[UPD][ERR] Write out of range! addr=0x%08lX\n", dest_addr);
             sendUpdateNackToAda();
             return;
         }
-        printf("[UPD] Write_Flash addr=0x%08lX, offset=0x%08lX\n", dest_addr, fw_offset);
-        HAL_StatusTypeDef res = Write_Flash(dest_addr, &buf[5], UPD_DATA_SIZE);
+
+        // 2. CRC 체크 (Android와 동일하게 [UPD] 헤더~DATA까지 137바이트 계산)
+        if (CONFIG_CRC_LEN > 0) {
+            // 패킷에서 CRC 추출 (big-endian)
+            uint32_t recv_crc = 0;
+            for (uint8_t i = 0; i < CONFIG_CRC_LEN; i++) {
+                recv_crc = (recv_crc << 8) | buf[9 + UPD_DATA_SIZE + i];
+            }
+            // CRC 계산 범위: [UPD]헤더(5)+OFFSET(4)+DATA(128) = 137바이트
+            uint32_t calc_crc = crcCalculate(CONFIG_HMI_CRC_TYPE, &buf[0], 137);
+            if (recv_crc != calc_crc) {
+                printf("[UPD][ERR] CRC mismatch! recv=0x%08lX, calc=0x%08lX\n", recv_crc, calc_crc);
+                sendUpdateNackToAda();
+                return;
+            }
+        }
+
+        // 3. Flash 기록
+        printf("[UPD] Write_Flash addr=0x%08lX, offset=0x%08lX\n", dest_addr, offset);
+        HAL_StatusTypeDef res = Write_Flash(dest_addr, &buf[9], UPD_DATA_SIZE);
         if (res == HAL_OK) {
-            fw_offset += UPD_DATA_SIZE;
-            HAL_Delay(2); // Flash 연속 쓰기 안정화 지연
+            fw_offset = offset + UPD_DATA_SIZE;
+            printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
             sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
-            // printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
-            // 기록 중 디버그 LED 반전
+            // 기록 중 부저 반전
             LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin);
         } else {
-            printf("[UPD][ERR] Flash Write Fail! addr=0x%08lX, offset=0x%08lX, ret=%d\n", dest_addr, fw_offset, res);
+            printf("[UPD][ERR] Flash Write Fail! addr=0x%08lX, offset=0x%08lX, ret=%d\n", dest_addr, offset, res);
             sendUpdateNackToAda();
         }
     }
