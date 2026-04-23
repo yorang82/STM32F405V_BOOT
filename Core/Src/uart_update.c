@@ -130,8 +130,8 @@ void processFullPacket(uint8_t *buf, uint32_t len)
             HAL_Delay(2); // Flash 연속 쓰기 안정화 지연
             sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
             // printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
-            // 기록 중 부저 반전
-            LL_GPIO_TogglePin(BUZZER_GPIO_Port, BUZZER_Pin);
+            // 기록 중 디버그 LED 반전
+            LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin);
         } else {
             printf("[UPD][ERR] Flash Write Fail! addr=0x%08lX, offset=0x%08lX, ret=%d\n", dest_addr, fw_offset, res);
             sendUpdateNackToAda();

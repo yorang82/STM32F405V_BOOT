@@ -75,8 +75,8 @@ void Update_Flag(uint32_t flag)
 {
     HAL_FLASH_Unlock();
     
-    // 기록 전 부저 짧게 ON
-    LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+    // 기록 전 디버그 LED 짧게 ON
+    LL_GPIO_SetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
 
     FLASH_EraseInitTypeDef EraseInitStruct;
     uint32_t SectorError;
@@ -89,8 +89,8 @@ void Update_Flag(uint32_t flag)
         HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, FLAG_ADDR, flag);
     }
 
-    // 기록 후 부저 OFF
-    LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+    // 기록 후 디버그 LED OFF
+    LL_GPIO_ResetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
     
     HAL_FLASH_Lock();
 }
