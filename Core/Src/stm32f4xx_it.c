@@ -62,6 +62,7 @@ extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
 // "이 버퍼는 다른 파일(uart_update.c)에 있으니까 거기서 찾아!"라고 알려주는 겁니다.
 extern uint8_t dma_rx_buffer[];
+extern void uartHandleByte(uint8_t byte);
 /* USER CODE END EV */
 
 /******************************************************************************/
