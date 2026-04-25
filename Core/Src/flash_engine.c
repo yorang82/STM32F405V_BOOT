@@ -20,17 +20,26 @@
  */
 HAL_StatusTypeDef Erase_App_Sectors(void)
 {
+    HAL_StatusTypeDef status = HAL_OK;
     FLASH_EraseInitTypeDef EraseInitStruct;
     uint32_t SectorError;
 
+    // 1. [핵심] 기록/삭제 전 반드시 Unlock을 해야 합니다.
+    HAL_FLASH_Unlock();
+
     EraseInitStruct.TypeErase     = FLASH_TYPEERASE_SECTORS;
     EraseInitStruct.VoltageRange  = FLASH_VOLTAGE_RANGE_3;
-    EraseInitStruct.Sector        = APP_SECTOR_START; // 시작 섹터
-    EraseInitStruct.NbSectors     = APP_SECTOR_COUNT;              // Sector 5, 6 총 2개
+    EraseInitStruct.Sector        = APP_SECTOR_START; 
+    EraseInitStruct.NbSectors     = APP_SECTOR_COUNT; 
 
-    return HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
+    // 2. 이제야 섹터가 정상적으로 지워집니다.
+    status = HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
+
+    // 3. 작업이 끝나면 다시 Lock을 걸어 보호합니다.
+    HAL_FLASH_Lock();
+
+    return status;
 }
-
 
 /* -------------------------------------------------------------------------- */
 /*                           Flash 데이터 기록 함수                           */

@@ -51,13 +51,13 @@ void Process_USB_Update(void)
                 Update_Flag(FLAG_ING);
                 HAL_FLASH_Unlock(); // 잠긴 플래시 다시 해제
 
-                LL_GPIO_SetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
+                LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                 while (f_read(&updateFile, writeBuffer, 128, &bytesRead) == FR_OK && bytesRead > 0) {
                     MX_USB_HOST_Process(); // 쓰기 중에도 USB 엔진 유지
                     if (Write_Flash(currentAddr, writeBuffer, bytesRead) != HAL_OK) break;
                     currentAddr += bytesRead;
                 }
-                LL_GPIO_ResetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
+                LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
 
                 if (f_eof(&updateFile)) {
                     Update_Flag(FLAG_PASS);
