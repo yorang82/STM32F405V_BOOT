@@ -30,3 +30,7 @@ Thumbs.db
 
 # Include .copilot folder for version control
 !.copilot/
+
+
+# Ignore problematic IDE settings file
+.settings/language.settings.xml
