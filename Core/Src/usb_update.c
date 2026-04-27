@@ -46,10 +46,15 @@ void Process_USB_Update(void)
         if (res == FR_OK) {
             printf("File Found! Size: %lu bytes\r\n", (uint32_t)f_size(&updateFile));
             
+<<<<<<< HEAD
             HAL_FLASH_Unlock();
             if (Erase_App_Sectors() == HAL_OK) {
                 Update_Flag(FLAG_ING);
                 HAL_FLASH_Unlock(); // 잠긴 플래시 다시 해제
+=======
+            if (Erase_App_Sectors() == HAL_OK) {
+                Update_Flag(FLAG_ING);
+>>>>>>> 3413773 (Initial commit)
 
                 LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
                 while (f_read(&updateFile, writeBuffer, 128, &bytesRead) == FR_OK && bytesRead > 0) {
@@ -64,7 +69,10 @@ void Process_USB_Update(void)
                     printf("USB Update Success! Resetting...\r\n");
                 }
             }
+<<<<<<< HEAD
             HAL_FLASH_Lock();
+=======
+>>>>>>> 3413773 (Initial commit)
             f_close(&updateFile);
         } else {
             // [중요] 에러 코드가 4(FR_NO_FILE)라면 파일명이 틀린 겁니다.

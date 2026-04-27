@@ -22,6 +22,10 @@
 #include "stm32f4xx_it.h"
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+<<<<<<< HEAD
+=======
+#include "uart_update.h"
+>>>>>>> 3413773 (Initial commit)
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -62,7 +66,10 @@ extern UART_HandleTypeDef huart3;
 /* USER CODE BEGIN EV */
 // "이 버퍼는 다른 파일(uart_update.c)에 있으니까 거기서 찾아!"라고 알려주는 겁니다.
 extern uint8_t dma_rx_buffer[];
+<<<<<<< HEAD
 extern void uartHandleByte(uint8_t byte);
+=======
+>>>>>>> 3413773 (Initial commit)
 /* USER CODE END EV */
 
 /******************************************************************************/

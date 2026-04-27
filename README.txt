@@ -5,6 +5,11 @@ STM32F405V_Boot 파일설명
 
 
 
+<<<<<<< HEAD
+=======
+
+
+>>>>>>> 3413773 (Initial commit)
 [2026-04-23] 부트로더 개선 및 안정화 작업 내역
 
 - UART 업데이트 시 Flash 쓰기 주소를 APP_START_ADDR + fw_offset로 명확히 지정 (정상 기록 보장)
@@ -16,6 +21,22 @@ STM32F405V_Boot 파일설명
 - USB 업데이트와 UART 업데이트의 Flash 기록 일치성 및 점프 동작 검증
 - UART 업데이트 중 패킷 손실/순서 오류/종료 타이밍 문제 진단 및 개선 가이드 추가
 
+<<<<<<< HEAD
+=======
+  [추가] CRC 길이 매크로/enum 구조 변경 및 빌드 오류 대응 내역
+  - CRC 타입 분기 매크로(enum/define) 구조 실험 및 적용
+  - CONFIG_HMI_CRC_TYPE, CONFIG_CRC_LEN 매크로 구조 변경 및 빌드 오류 대응
+  - crc.h에 이미 enum이 정의되어 있을 경우, 중복 선언 제거
+  - CONFIG_CRC_LEN을 직접 define(2)로 지정하여 CRC_16 기준 정상 동작 확인
+  - CRC 길이 자동화 매크로와 직접 define 방식의 장단점 정리
+
+  [추가] UART 통신 속도 동적 변경 및 안정화 내역
+  - HMI 시작 커맨드(UNIT 1) 수신 시 UART 속도를 38400bps로 자동 변경
+  - 펌웨어 업데이트 종료 커맨드(UNIT 3) 수신 시 UART 속도를 115200bps로 복구
+  - 속도 변경 후 DMA 수신 재시작 및 IDLE 인터럽트 재설정 처리
+  - Android 송신 측과의 통신 안정성 검증 및 로그 추가
+
+>>>>>>> 3413773 (Initial commit)
 
 [2026-04-21] 펌웨어 업데이트 파일/주소/플래그 설정 안내
 

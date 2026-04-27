@@ -20,6 +20,7 @@
  */
 HAL_StatusTypeDef Erase_App_Sectors(void)
 {
+<<<<<<< HEAD
     FLASH_EraseInitTypeDef EraseInitStruct;
     uint32_t SectorError;
 
@@ -32,6 +33,29 @@ HAL_StatusTypeDef Erase_App_Sectors(void)
 }
 
 
+=======
+    HAL_StatusTypeDef status = HAL_OK;
+    FLASH_EraseInitTypeDef EraseInitStruct;
+    uint32_t SectorError;
+
+    // 1. [핵심] 기록/삭제 전 반드시 Unlock을 해야 합니다.
+    HAL_FLASH_Unlock();
+
+    EraseInitStruct.TypeErase     = FLASH_TYPEERASE_SECTORS;
+    EraseInitStruct.VoltageRange  = FLASH_VOLTAGE_RANGE_3;
+    EraseInitStruct.Sector        = APP_SECTOR_START; 
+    EraseInitStruct.NbSectors     = APP_SECTOR_COUNT; 
+
+    // 2. 이제야 섹터가 정상적으로 지워집니다.
+    status = HAL_FLASHEx_Erase(&EraseInitStruct, &SectorError);
+
+    // 3. 작업이 끝나면 다시 Lock을 걸어 보호합니다.
+    HAL_FLASH_Lock();
+
+    return status;
+}
+
+>>>>>>> 3413773 (Initial commit)
 /* -------------------------------------------------------------------------- */
 /*                           Flash 데이터 기록 함수                           */
 /* -------------------------------------------------------------------------- */
@@ -75,8 +99,13 @@ void Update_Flag(uint32_t flag)
 {
     HAL_FLASH_Unlock();
     
+<<<<<<< HEAD
     // 기록 전 부저 짧게 ON
     LL_GPIO_SetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+=======
+    // 기록 전 디버그 LED 짧게 ON
+    LL_GPIO_SetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
+>>>>>>> 3413773 (Initial commit)
 
     FLASH_EraseInitTypeDef EraseInitStruct;
     uint32_t SectorError;
@@ -89,8 +118,13 @@ void Update_Flag(uint32_t flag)
         HAL_FLASH_Program(FLASH_TYPEPROGRAM_WORD, FLAG_ADDR, flag);
     }
 
+<<<<<<< HEAD
     // 기록 후 부저 OFF
     LL_GPIO_ResetOutputPin(BUZZER_GPIO_Port, BUZZER_Pin);
+=======
+    // 기록 후 디버그 LED OFF
+    LL_GPIO_ResetOutputPin(DBG_LED_GPIO_Port, DBG_LED_Pin);
+>>>>>>> 3413773 (Initial commit)
     
     HAL_FLASH_Lock();
 }
