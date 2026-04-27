@@ -75,9 +75,9 @@ void processFullPacket(uint8_t *buf, uint32_t len)
 
     // 2. [HMI] 커맨드 분기 처리
     if (memcmp(buf, HMI_HDR, 5) == 0) {
-        uint8_t unit = buf[7]; // UNIT: 1(Start), 2(Data Ready), 3(End)
+        uint8_t cmd = buf[6]; // UNIT: 1(Start), 2(Data Ready), 3(End)
         
-        switch(unit) {
+        switch(cmd) {
             case 1: // 시작 커맨드 (0x73, UNIT 1)
                 // UART 속도 38400으로 변경
                 printf("[UPD] START CMD received\n");
@@ -94,7 +94,7 @@ void processFullPacket(uint8_t *buf, uint32_t len)
                 if (Erase_App_Sectors() == HAL_OK) { // 성공
                     Update_Flag(FLAG_ING);
                     fw_offset = 0;
-                    printf("[UPD] App sectors erased, ready for data\n");
+                    printf("[UPD] Erase complete. Ready for update\n");
                     sendUpdateAckToAda();
                 }
                 break;
@@ -156,11 +156,11 @@ void processFullPacket(uint8_t *buf, uint32_t len)
         }
 
         // 3. Flash 기록
-        printf("[UPD] Write_Flash addr=0x%08lX, offset=0x%08lX\n", dest_addr, offset);
+        // printf("[UPD] Write_Flash addr=0x%08lX, offset=0x%08lX\n", dest_addr, offset);
         HAL_StatusTypeDef res = Write_Flash(dest_addr, &buf[9], UPD_DATA_SIZE);
         if (res == HAL_OK) {
             fw_offset = offset + UPD_DATA_SIZE;
-            printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
+            // printf("[UPD] ACK sent, offset=0x%08lX\n", fw_offset);
             sendUpdateAckToAda(); // 정상 기록 시 ACK (다음 패킷 요청)
             // 기록 중 부저 반전
             LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin);
