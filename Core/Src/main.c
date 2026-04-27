@@ -163,6 +163,7 @@ int main(void)
 
     // 2초 동안 강제 업데이트 트리거 대기
     uint32_t uart_trigger_start = HAL_GetTick();
+    printf("[BOOT] UART Force Update Trigger Waiting... (Max 2s, FLAG=0x%08lX)\r\n", Get_Flag());
     while ((HAL_GetTick() - uart_trigger_start) < 2000)
     {
       uartCheckForceUpdateTrigger(); // FLAG_PASS일 때 안드로이드의 0x73(CMD 1) 수신 여부 확인 (강제 진입 트리거)
