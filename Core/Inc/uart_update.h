@@ -61,6 +61,12 @@ bool uartUpdateInit(void);
 void uartUpdateProcess(void);
 
 /**
+ * @brief  강제 업데이트 트리거 체크 (메인 루프에서 반복 호출)
+ * @retval true: 강제 업데이트 트리거 감지, false: 없음
+ */
+bool uartCheckForceUpdateTrigger(void);
+
+/**
  * @brief  수신 버퍼에 남아있는 데이터 개수 반환
  * @retval 남은 바이트 수
  */

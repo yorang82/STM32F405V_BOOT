@@ -252,12 +252,29 @@ void uartUpdateProcess(void)
 
     // 1초마다 펌웨어 요청 (NEW=20, READY=44)
     if (flag == FLAG_NEW || flag == FLAG_READY) {
-        if (current_tick - last_request_tick > 1000) {
+        if (current_tick - last_request_tick > 250) {
             sendFwRequestToAda((flag == FLAG_NEW) ? 20 : 44);
             last_request_tick = current_tick;
             LL_GPIO_TogglePin(DBG_LED_GPIO_Port, DBG_LED_Pin);
         }
     }
+}
+
+bool uartCheckForceUpdateTrigger(void)
+{
+    // 1. PASS가 아니면 이 리스너는 동작 안 함
+    if (Get_Flag() != FLAG_PASS) return false;
+
+    // 2. 안드로이드가 보낸 0x73(Value 1 등)을 받고 
+    //    인터럽트에서 이미 FLAG_ING로 바꿨는지 확인
+    if (Get_Flag() == FLAG_ING) {
+        return true; // 강제 진입 성공!
+    }
+
+    // 노크(sendFwRequestToAda)는 아예 삭제! 
+    // 안드로이드가 500ms 간격으로 계속 쏘고 있으니 받기만 하면 됩니다.
+
+    return false;
 }
 
 /* -------------------------------------------------------------------------- */

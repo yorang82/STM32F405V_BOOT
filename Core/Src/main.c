@@ -136,8 +136,8 @@ int main(void)
     /* ------------------------------------------------------------------ */
     /* STEP 1. USB 인식 대기 (최대 3초)               */
     /* ------------------------------------------------------------------ */
-    printf("[BOOT] USB Waiting... (Max 3s)\r\n");
-    while ((HAL_GetTick() - start_tick) < 3000)
+    printf("[BOOT] USB Waiting... (Max 2s)\r\n");
+    while ((HAL_GetTick() - start_tick) < 2000)
     {
     /* USER CODE END WHILE */
     MX_USB_HOST_Process();
@@ -165,23 +165,22 @@ int main(void)
 
     while (1)
     {
-        // Ada에게 펌웨어 요청 (1초 간격으로 20 또는 44 전송)
-        uartUpdateProcess(); 
+      // 1. 상태를 먼저 확인 (가장 최신 플래그 값 읽기)
+      uint32_t current_f = Get_Flag();
 
-        // 인터럽트에서 플래시 기록 완료 시 FLAG_PASS로 변경됨
-        if (Get_Flag() == FLAG_PASS) {
-            uart_success = true;
-            break;
-        }
+      // 2. 성공 시 즉시 탈출 (불필요한 노크 방지)
+      if (current_f == FLAG_PASS) {
+        uart_success = true;
+        break;
+      }
 
-        // [핵심] FLAG_NEW 또는 FLAG_ING(업데이트 중)일 때는 무한 대기
-        if (Get_Flag() != FLAG_NEW && Get_Flag() != FLAG_ING) {
-          if ((HAL_GetTick() - start_tick) > 3000) {
-            printf("[BOOT] UART Timeout. Next sequence...\r\n");
-            break; // 3초 지나면 루프 나가서 다시 USB부터 체크
-          }
-        }
-        // FLAG_NEW 상태라면 break를 만나지 않고 Ada가 응답할 때까지 무한 대기
+      // 3. PASS가 아닌 경우(NEW, READY, ING)에만 핸드쉐이크/업데이트 진행
+      // 이 안에서 250ms 간격으로 노크를 보냅니다.
+      uartUpdateProcess(); 
+
+      // [참고] 만약 이 루프가 USB 체크 루프 내부에 있는 것이 아니라면 
+      // CPU 점유율을 위해 아주 짧은 지연을 줄 수도 있습니다.
+      HAL_Delay(1); 
     }
 
     if (uart_success) break; // UART 성공 시 루프 탈출 -> 앱으로 점프

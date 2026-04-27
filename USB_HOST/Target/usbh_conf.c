@@ -444,10 +444,10 @@ USBH_StatusTypeDef USBH_LL_DriverVBUS(USBH_HandleTypeDef *phost, uint8_t state)
 
   /* USER CODE BEGIN 0 */
 if (state == 0) {
-    // 전원 OFF 시 호출
+    // Disable VBUS
     LL_GPIO_SetOutputPin(USB_PENA_GPIO_Port, USB_PENA_Pin);
   } else {
-    // 전원 ON 시 호출
+    // Enable VBUS 
     LL_GPIO_ResetOutputPin(USB_PENA_GPIO_Port, USB_PENA_Pin);
   }
   /* USER CODE END 0*/
