@@ -134,7 +134,7 @@ int main(void)
     bool uart_success = false;
 
     /* ------------------------------------------------------------------ */
-    /* STEP 1. USB 인식 대기 (최대 3초)               */
+    /* STEP 1. USB 인식 대기 (최대 2초)               */
     /* ------------------------------------------------------------------ */
     printf("[BOOT] USB Waiting... (Max 2s)\r\n");
     while ((HAL_GetTick() - start_tick) < 2000)
@@ -158,7 +158,19 @@ int main(void)
     if (usb_success) break; // USB 성공 시 루프 탈출 -> 앱으로 점프
 
     /* ------------------------------------------------------------------ */
-    /* STEP 2. UART 업데이트 대기 (NEW일 땐 무한, 아닐 땐 3초) */
+    /* STEP 2. UART 강제 업데이트 대기 (FLAG_PASS 일때 ) */
+    /* ------------------------------------------------------------------ */
+
+    // 2초 동안 강제 업데이트 트리거 대기
+    uint32_t uart_trigger_start = HAL_GetTick();
+    while ((HAL_GetTick() - uart_trigger_start) < 2000)
+    {
+      uartCheckForceUpdateTrigger(); // FLAG_PASS일 때 안드로이드의 0x73(Value 1) 수신 여부 확인 (강제 진입 트리거)
+      HAL_Delay(1); // CPU 점유율 방지
+    }
+
+    /* ------------------------------------------------------------------ */
+    /* STEP 3. UART 업데이트 대기 (NEW일 땐 무한, 아닐 땐 3초) */
     /* ------------------------------------------------------------------ */
     start_tick = HAL_GetTick();
     printf("[BOOT] UART Waiting... (FLAG=0x%08lX)\r\n", Get_Flag());
